@@ -1,8 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { Stage, Layer } from 'react-konva';
 import type Konva from 'konva';
-import { clampZoom, calculateZoomPosition, getZoomPoint, fitStageToWindow } from '../../utils/canvas';
+import { clampZoom, calculateZoomPosition, getZoomPoint, fitStageToWindow, getRelativePointerPosition } from '../../utils/canvas';
+import { useCanvas } from '../../hooks/useCanvas';
+import Shape from './Shape';
 import './Canvas.css';
+
+export type CanvasMode = 'select' | 'rectangle';
 
 interface CanvasProps {
   user: {
@@ -11,13 +15,25 @@ interface CanvasProps {
     email: string;
     color: string;
   };
+  mode: CanvasMode;
+  onModeChange: (mode: CanvasMode) => void;
 }
 
-export default function Canvas({ user }: CanvasProps) {
+export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
   const [stageSize, setStageSize] = useState(fitStageToWindow());
   const [stageScale, setStageScale] = useState(1);
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
   const stageRef = useRef<Konva.Stage>(null);
+  const isPanningRef = useRef(false);
+  const lastPanPositionRef = useRef({ x: 0, y: 0 });
+  
+  const {
+    shapes,
+    selectedShapeId,
+    createShape,
+    updateShape,
+    selectShape,
+  } = useCanvas();
 
   // Handle window resize
   useEffect(() => {
@@ -28,6 +44,71 @@ export default function Canvas({ user }: CanvasProps) {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Handle mouse move and up on document for panning
+  useEffect(() => {
+    const handleDocumentMouseMove = (e: MouseEvent) => {
+      if (!isPanningRef.current) return;
+
+      const dx = e.clientX - lastPanPositionRef.current.x;
+      const dy = e.clientY - lastPanPositionRef.current.y;
+
+      setStagePosition(prev => ({
+        x: prev.x + dx,
+        y: prev.y + dy,
+      }));
+
+      lastPanPositionRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+      };
+    };
+
+    const handleDocumentMouseUp = () => {
+      isPanningRef.current = false;
+    };
+
+    document.addEventListener('mousemove', handleDocumentMouseMove);
+    document.addEventListener('mouseup', handleDocumentMouseUp);
+    return () => {
+      document.removeEventListener('mousemove', handleDocumentMouseMove);
+      document.removeEventListener('mouseup', handleDocumentMouseUp);
+    };
+  }, []);
+
+  // Handle keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'v' || e.key === 'V') {
+        onModeChange('select');
+        // Remove focus from any focused button to clear outline
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      } else if (e.key === 'r' || e.key === 'R') {
+        onModeChange('rectangle');
+        // Remove focus from any focused button to clear outline
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      } else if (e.key === 'Escape') {
+        onModeChange('select');
+        selectShape(null);
+        // Remove focus from any focused button to clear outline
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        // Delete selected shape (will implement in next iteration)
+        if (selectedShapeId) {
+          // deleteShape(selectedShapeId); // Uncomment when delete is needed
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onModeChange, selectShape, selectedShapeId]);
 
   // Handle zoom with mouse wheel
   const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -56,11 +137,51 @@ export default function Canvas({ user }: CanvasProps) {
     setStagePosition(newPos);
   };
 
-  // Handle drag end to update position
-  const handleDragEnd = (e: Konva.KonvaEventObject<DragEvent>) => {
-    setStagePosition({
+  // Handle stage click (for creating shapes or deselecting)
+  const handleStageClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    // If clicking on the stage itself (not a shape)
+    if (e.target === e.target.getStage()) {
+      if (mode === 'rectangle') {
+        // Create shape at click position
+        const stage = stageRef.current;
+        if (stage) {
+          const pos = getRelativePointerPosition(stage);
+          createShape(pos.x, pos.y, user.id);
+        }
+      } else {
+        // Deselect when clicking empty canvas in select mode
+        selectShape(null);
+      }
+    }
+  };
+
+  // Manual panning: Handle mouse down on stage
+  const handleStageMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+    const stage = e.target.getStage();
+    const clickedOnEmpty = e.target === stage;
+    
+    // Only start panning if we clicked on empty canvas in select mode
+    if (clickedOnEmpty && mode === 'select') {
+      isPanningRef.current = true;
+      lastPanPositionRef.current = {
+        x: e.evt.clientX,
+        y: e.evt.clientY,
+      };
+    }
+  };
+
+
+  // Handle shape drag start
+  const handleShapeDragStart = () => {
+    // Just a placeholder for now
+  };
+
+  // Handle shape drag end
+  const handleShapeDragEnd = (shapeId: string) => (e: Konva.KonvaEventObject<DragEvent>) => {
+    updateShape(shapeId, {
       x: e.target.x(),
       y: e.target.y(),
+      lastModifiedBy: user.id,
     });
   };
 
@@ -74,34 +195,51 @@ export default function Canvas({ user }: CanvasProps) {
         scaleY={stageScale}
         x={stagePosition.x}
         y={stagePosition.y}
-        draggable
         onWheel={handleWheel}
-        onDragEnd={handleDragEnd}
+        onClick={handleStageClick}
+        onTap={handleStageClick}
+        onMouseDown={handleStageMouseDown}
       >
-        <Layer>
-          {/* Grid background for reference */}
-          {/* Shapes will be rendered here in future PRs */}
+        <Layer listening={true}>
+          {/* Render all shapes */}
+          {shapes.map(shape => (
+            <Shape
+              key={shape.id}
+              shape={shape}
+              isSelected={shape.id === selectedShapeId}
+              onSelect={() => selectShape(shape.id)}
+              onDragStart={handleShapeDragStart}
+              onDragEnd={handleShapeDragEnd(shape.id)}
+            />
+          ))}
         </Layer>
       </Stage>
       
       {/* Canvas info overlay */}
       <div className="canvas-info">
         <div className="info-item">
-          <span className="info-label">User:</span>
-          <span className="info-value">{user.name}</span>
+          <span className="info-label">Mode:</span>
+          <span className="info-value">{mode === 'select' ? 'Select (V)' : 'Rectangle (R)'}</span>
+        </div>
+        <div className="info-item">
+          <span className="info-label">Shapes:</span>
+          <span className="info-value">{shapes.length}</span>
         </div>
         <div className="info-item">
           <span className="info-label">Zoom:</span>
           <span className="info-value">{Math.round(stageScale * 100)}%</span>
         </div>
-        <div className="info-item">
-          <span className="info-label">Position:</span>
-          <span className="info-value">
-            {Math.round(stagePosition.x)}, {Math.round(stagePosition.y)}
-          </span>
-        </div>
       </div>
+
+      {/* Mode instructions */}
+      {mode === 'rectangle' && (
+        <div className="mode-instruction">
+          Click anywhere on canvas to create a rectangle. Press V or ESC to exit.
+        </div>
+      )}
     </div>
   );
 }
+
+// No additional exports needed
 

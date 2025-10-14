@@ -1,11 +1,14 @@
+import { useState } from 'react'
 import './App.css'
 import { signOut } from './lib/firebase'
 import AuthWrapper from './components/auth/AuthWrapper'
-import Canvas from './components/canvas/Canvas'
+import Canvas, { type CanvasMode } from './components/canvas/Canvas'
 import Toolbar from './components/canvas/Toolbar'
 import type { User } from './lib/types'
 
 function App() {
+  const [mode, setMode] = useState<CanvasMode>('select')
+
   const handleSignOut = async () => {
     try {
       await signOut()
@@ -18,9 +21,18 @@ function App() {
     <AuthWrapper>
       {(user: User) => (
         <div className="app-container">
-          <Toolbar user={user} onSignOut={handleSignOut} />
+          <Toolbar 
+            user={user} 
+            onSignOut={handleSignOut}
+            mode={mode}
+            onModeChange={setMode}
+          />
           <div className="canvas-wrapper">
-            <Canvas user={user} />
+            <Canvas 
+              user={user}
+              mode={mode}
+              onModeChange={setMode}
+            />
           </div>
         </div>
       )}

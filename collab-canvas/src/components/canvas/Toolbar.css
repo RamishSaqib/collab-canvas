@@ -70,6 +70,27 @@
   cursor: not-allowed;
 }
 
+.tool-button:focus {
+  outline: none;
+}
+
+.tool-button:focus-visible {
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
+}
+
+.tool-button.active {
+  background: #667eea;
+  color: white;
+}
+
+.tool-button.active:hover {
+  background: #5568d3;
+}
+
+.tool-button.active:focus-visible {
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.5);
+}
+
 .tool-hint {
   font-size: 0.8rem;
   color: #a0aec0;

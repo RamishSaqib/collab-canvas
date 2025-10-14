@@ -1,4 +1,5 @@
 import './Toolbar.css';
+import type { CanvasMode } from './Canvas';
 
 interface ToolbarProps {
   user: {
@@ -7,26 +8,39 @@ interface ToolbarProps {
     color: string;
   };
   onSignOut: () => void;
+  mode: CanvasMode;
+  onModeChange: (mode: CanvasMode) => void;
 }
 
-export default function Toolbar({ user, onSignOut }: ToolbarProps) {
+export default function Toolbar({ user, onSignOut, mode, onModeChange }: ToolbarProps) {
+  const handleToolClick = (tool: CanvasMode) => {
+    onModeChange(tool);
+  };
+
   return (
     <div className="toolbar">
       <div className="toolbar-left">
         <h1 className="toolbar-title">CollabCanvas</h1>
         <div className="toolbar-divider"></div>
         <div className="toolbar-tools">
-          <button className="tool-button" title="Select Tool (V)" disabled>
+          <button 
+            className={`tool-button ${mode === 'select' ? 'active' : ''}`}
+            title="Select Tool (V)" 
+            onClick={() => handleToolClick('select')}
+          >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
               <path d="M3 3l14 7-6 2-2 6-6-15z" />
             </svg>
           </button>
-          <button className="tool-button" title="Rectangle Tool (R)" disabled>
+          <button 
+            className={`tool-button ${mode === 'rectangle' ? 'active' : ''}`}
+            title="Rectangle Tool (R)" 
+            onClick={() => handleToolClick('rectangle')}
+          >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="4" y="4" width="12" height="12" />
             </svg>
           </button>
-          <span className="tool-hint">Shape tools coming in PR #4</span>
         </div>
       </div>
 
