@@ -13,9 +13,20 @@ import type { CanvasObject } from '../lib/types';
 
 const CANVAS_ID = 'main-canvas'; // Single shared canvas for MVP
 
+// Debounce helper
+interface PendingUpdate {
+  objectId: string;
+  updates: Partial<CanvasObject>;
+  timeoutId: NodeJS.Timeout;
+}
+
+const pendingUpdates = new Map<string, PendingUpdate>();
+const DEBOUNCE_MS = 300; // 300ms debounce for updates
+
 /**
  * Firestore persistence hook for canvas objects
  * Manages save, update, delete, and real-time sync operations
+ * Includes debouncing for performance optimization
  */
 export function useFirestore() {
   
@@ -54,16 +65,16 @@ export function useFirestore() {
   };
 
   /**
-   * Update an existing object in Firestore
+   * Execute pending update immediately
    */
-  const updateObject = async (objectId: string, updates: Partial<CanvasObject>): Promise<void> => {
+  const executePendingUpdate = async (pending: PendingUpdate): Promise<void> => {
     try {
-      const objectRef = getObjectDoc(objectId);
+      const objectRef = getObjectDoc(pending.objectId);
       await updateDoc(objectRef, {
-        ...updates,
+        ...pending.updates,
         lastModifiedAt: Date.now()
       });
-      console.log('Object updated in Firestore:', objectId);
+      console.log('Object updated in Firestore (debounced):', pending.objectId);
     } catch (error) {
       console.error('Error updating object in Firestore:', error);
       throw error;
@@ -71,10 +82,76 @@ export function useFirestore() {
   };
 
   /**
+   * Update an existing object in Firestore (debounced for performance)
+   * Multiple rapid updates to the same object will be batched
+   */
+  const updateObject = async (objectId: string, updates: Partial<CanvasObject>): Promise<void> => {
+    // Cancel any pending update for this object
+    const existing = pendingUpdates.get(objectId);
+    if (existing) {
+      clearTimeout(existing.timeoutId);
+    }
+
+    // Merge with existing pending updates
+    const mergedUpdates = existing 
+      ? { ...existing.updates, ...updates }
+      : updates;
+
+    // Schedule the update
+    const timeoutId = setTimeout(async () => {
+      const pending = pendingUpdates.get(objectId);
+      if (pending) {
+        pendingUpdates.delete(objectId);
+        await executePendingUpdate(pending);
+      }
+    }, DEBOUNCE_MS);
+
+    // Store the pending update
+    pendingUpdates.set(objectId, {
+      objectId,
+      updates: mergedUpdates,
+      timeoutId
+    });
+  };
+
+  /**
+   * Flush a specific pending update immediately (useful for important updates)
+   */
+  const flushUpdate = async (objectId: string): Promise<void> => {
+    const pending = pendingUpdates.get(objectId);
+    if (pending) {
+      clearTimeout(pending.timeoutId);
+      pendingUpdates.delete(objectId);
+      await executePendingUpdate(pending);
+    }
+  };
+
+  /**
+   * Flush all pending updates immediately
+   */
+  const flushAllUpdates = async (): Promise<void> => {
+    const updates = Array.from(pendingUpdates.values());
+    pendingUpdates.clear();
+    
+    // Clear all timeouts
+    updates.forEach(pending => clearTimeout(pending.timeoutId));
+    
+    // Execute all updates in parallel
+    await Promise.all(updates.map(executePendingUpdate));
+  };
+
+  /**
    * Delete an object from Firestore
    */
   const deleteObject = async (objectId: string): Promise<void> => {
     try {
+      // Cancel any pending updates for this object
+      const pending = pendingUpdates.get(objectId);
+      if (pending) {
+        clearTimeout(pending.timeoutId);
+        pendingUpdates.delete(objectId);
+      }
+
       const objectRef = getObjectDoc(objectId);
       await deleteDoc(objectRef);
       console.log('Object deleted from Firestore:', objectId);
@@ -120,7 +197,8 @@ export function useFirestore() {
     updateObject,
     deleteObject,
     subscribeToObjects,
+    flushUpdate,
+    flushAllUpdates,
     canvasId: CANVAS_ID
   };
 }
-

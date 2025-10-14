@@ -15,7 +15,7 @@ interface UseCanvasReturn {
 export function useCanvas(): UseCanvasReturn {
   const [shapes, setShapes] = useState<CanvasObject[]>([]);
   const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
-  const { saveObject, updateObject, deleteObject, subscribeToObjects } = useFirestore();
+  const { saveObject, updateObject, deleteObject, subscribeToObjects, flushAllUpdates } = useFirestore();
   
   // Track if we're in the initial load to avoid saving remote changes back to Firestore
   const isInitialLoadRef = useRef(true);
@@ -50,6 +50,12 @@ export function useCanvas(): UseCanvasReturn {
     return () => {
       console.log('🧹 Cleaning up Firestore subscription');
       unsubscribe();
+      
+      // Flush any pending updates before unmounting
+      console.log('⚡ Flushing pending Firestore updates...');
+      flushAllUpdates().catch(error => {
+        console.error('Failed to flush pending updates:', error);
+      });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount

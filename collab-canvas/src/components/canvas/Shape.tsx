@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Rect } from 'react-konva';
 import type Konva from 'konva';
 import type { CanvasObject } from '../../lib/types';
@@ -10,7 +11,11 @@ interface ShapeProps {
   onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => void;
 }
 
-export default function Shape({ shape, isSelected, onSelect, onDragStart, onDragEnd }: ShapeProps) {
+/**
+ * Memoized Shape component for optimal rendering performance
+ * Only re-renders when shape data, selection state, or callbacks change
+ */
+function Shape({ shape, isSelected, onSelect, onDragStart, onDragEnd }: ShapeProps) {
   // Only render rectangle for now (other shapes in future)
   if (shape.type !== 'rectangle') return null;
 
@@ -85,4 +90,23 @@ export default function Shape({ shape, isSelected, onSelect, onDragStart, onDrag
     />
   );
 }
+
+/**
+ * Custom comparison function for memo
+ * Prevents re-renders when shape properties haven't changed
+ */
+function arePropsEqual(prevProps: ShapeProps, nextProps: ShapeProps) {
+  return (
+    prevProps.shape.id === nextProps.shape.id &&
+    prevProps.shape.x === nextProps.shape.x &&
+    prevProps.shape.y === nextProps.shape.y &&
+    prevProps.shape.width === nextProps.shape.width &&
+    prevProps.shape.height === nextProps.shape.height &&
+    prevProps.shape.fill === nextProps.shape.fill &&
+    prevProps.shape.rotation === nextProps.shape.rotation &&
+    prevProps.isSelected === nextProps.isSelected
+  );
+}
+
+export default memo(Shape, arePropsEqual);
 

@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Stage, Layer } from 'react-konva';
 import type Konva from 'konva';
 import { clampZoom, calculateZoomPosition, getZoomPoint, fitStageToWindow, getRelativePointerPosition } from '../../utils/canvas';
 import { useCanvas } from '../../hooks/useCanvas';
 import { useCursors } from '../../hooks/useCursors';
+import { checkMemoryLeaks } from '../../utils/performance';
 import Shape from './Shape';
 import Cursor from './Cursor';
 import './Canvas.css';
@@ -52,6 +53,15 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Performance monitoring: Check for potential memory leaks
+  useEffect(() => {
+    const interval = setInterval(() => {
+      checkMemoryLeaks(shapes.length, 500); // Warn if > 500 shapes
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [shapes.length]);
 
   // Handle mouse move and up on document for panning
   useEffect(() => {
@@ -118,8 +128,8 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onModeChange, selectShape, selectedShapeId]);
 
-  // Handle zoom with mouse wheel
-  const handleWheel = (e: Konva.KonvaEventObject<WheelEvent>) => {
+  // Handle zoom with mouse wheel (memoized)
+  const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
     
     const stage = stageRef.current;
@@ -143,10 +153,10 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
 
     setStageScale(newScale);
     setStagePosition(newPos);
-  };
+  }, []);
 
-  // Handle stage click (for creating shapes or deselecting)
-  const handleStageClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
+  // Handle stage click (for creating shapes or deselecting) - memoized
+  const handleStageClick = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
     // If clicking on the stage itself (not a shape)
     if (e.target === e.target.getStage()) {
       if (mode === 'rectangle') {
@@ -161,10 +171,10 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
         selectShape(null);
       }
     }
-  };
+  }, [mode, createShape, selectShape, user.id]);
 
-  // Manual panning: Handle mouse down on stage
-  const handleStageMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
+  // Manual panning: Handle mouse down on stage - memoized
+  const handleStageMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
     const stage = e.target.getStage();
     const clickedOnEmpty = e.target === stage;
     
@@ -176,32 +186,31 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
         y: e.evt.clientY,
       };
     }
-  };
+  }, [mode]);
 
-
-  // Handle mouse move to broadcast cursor position
-  const handleMouseMove = () => {
+  // Handle mouse move to broadcast cursor position - memoized
+  const handleMouseMove = useCallback(() => {
     const stage = stageRef.current;
     if (!stage) return;
 
     // Get canvas-relative position (accounting for zoom/pan)
     const pos = getRelativePointerPosition(stage);
     broadcastCursor(pos.x, pos.y);
-  };
+  }, [broadcastCursor]);
 
-  // Handle shape drag start
-  const handleShapeDragStart = () => {
+  // Handle shape drag start - memoized
+  const handleShapeDragStart = useCallback(() => {
     // Just a placeholder for now
-  };
+  }, []);
 
-  // Handle shape drag end
-  const handleShapeDragEnd = (shapeId: string) => (e: Konva.KonvaEventObject<DragEvent>) => {
+  // Handle shape drag end - memoized
+  const handleShapeDragEnd = useCallback((shapeId: string) => (e: Konva.KonvaEventObject<DragEvent>) => {
     updateShape(shapeId, {
       x: e.target.x(),
       y: e.target.y(),
       lastModifiedBy: user.id,
     });
-  };
+  }, [updateShape, user.id]);
 
   return (
     <div className="canvas-container">
@@ -221,16 +230,21 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
       >
         <Layer listening={true}>
           {/* Render all shapes */}
-          {shapes.map(shape => (
-            <Shape
-              key={shape.id}
-              shape={shape}
-              isSelected={shape.id === selectedShapeId}
-              onSelect={() => selectShape(shape.id)}
-              onDragStart={handleShapeDragStart}
-              onDragEnd={handleShapeDragEnd(shape.id)}
-            />
-          ))}
+          {shapes.map(shape => {
+            // Memoize onSelect callback per shape to avoid recreating on every render
+            const handleSelect = () => selectShape(shape.id);
+            
+            return (
+              <Shape
+                key={shape.id}
+                shape={shape}
+                isSelected={shape.id === selectedShapeId}
+                onSelect={handleSelect}
+                onDragStart={handleShapeDragStart}
+                onDragEnd={handleShapeDragEnd(shape.id)}
+              />
+            );
+          })}
           
           {/* Render other users' cursors */}
           {otherCursors.map(cursor => (

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Group, Circle, Text, Rect } from 'react-konva';
 import type { CursorPosition } from '../../lib/types';
 
@@ -8,8 +9,9 @@ interface CursorProps {
 
 /**
  * Renders another user's cursor position with their name label
+ * Memoized to prevent unnecessary re-renders
  */
-export default function Cursor({ cursor, stageScale }: CursorProps) {
+function Cursor({ cursor, stageScale }: CursorProps) {
   // Scale the cursor size based on zoom level for consistent appearance
   const cursorSize = 12 / stageScale;
   const fontSize = 14 / stageScale;
@@ -58,4 +60,21 @@ export default function Cursor({ cursor, stageScale }: CursorProps) {
     </Group>
   );
 }
+
+/**
+ * Custom comparison function for cursor memoization
+ * Only re-render if position, color, name, or scale changes
+ */
+function arePropsEqual(prevProps: CursorProps, nextProps: CursorProps) {
+  return (
+    prevProps.cursor.userId === nextProps.cursor.userId &&
+    prevProps.cursor.x === nextProps.cursor.x &&
+    prevProps.cursor.y === nextProps.cursor.y &&
+    prevProps.cursor.color === nextProps.cursor.color &&
+    prevProps.cursor.userName === nextProps.cursor.userName &&
+    prevProps.stageScale === nextProps.stageScale
+  );
+}
+
+export default memo(Cursor, arePropsEqual);
 

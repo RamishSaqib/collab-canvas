@@ -1,15 +1,41 @@
+import { memo } from 'react';
 import { usePresence } from '../../hooks/usePresence';
-import type { User } from '../../lib/types';
+import type { User, Presence } from '../../lib/types';
 import './Sidebar.css';
 
 interface SidebarProps {
   currentUser: User;
 }
 
+interface UserItemProps {
+  user: Presence;
+  isCurrentUser: boolean;
+}
+
+/**
+ * Memoized user list item component
+ */
+const UserItem = memo(({ user, isCurrentUser }: UserItemProps) => (
+  <li className="user-item">
+    <div 
+      className="user-indicator" 
+      style={{ backgroundColor: user.color }}
+      title={user.color}
+    />
+    <span className="user-name">
+      {user.userName}
+      {isCurrentUser && <span className="you-label"> (You)</span>}
+    </span>
+  </li>
+));
+
+UserItem.displayName = 'UserItem';
+
 /**
  * Sidebar component showing online users
+ * Optimized with memoization for better performance
  */
-export default function Sidebar({ currentUser }: SidebarProps) {
+function Sidebar({ currentUser }: SidebarProps) {
   const { onlineUsers } = usePresence({
     userId: currentUser.id,
     userName: currentUser.name,
@@ -30,27 +56,19 @@ export default function Sidebar({ currentUser }: SidebarProps) {
           </div>
         ) : (
           <ul className="user-list">
-            {onlineUsers.map((user) => {
-              const isCurrentUser = user.userId === currentUser.id;
-              
-              return (
-                <li key={user.userId} className="user-item">
-                  <div 
-                    className="user-indicator" 
-                    style={{ backgroundColor: user.color }}
-                    title={user.color}
-                  />
-                  <span className="user-name">
-                    {user.userName}
-                    {isCurrentUser && <span className="you-label"> (You)</span>}
-                  </span>
-                </li>
-              );
-            })}
+            {onlineUsers.map((user) => (
+              <UserItem
+                key={user.userId}
+                user={user}
+                isCurrentUser={user.userId === currentUser.id}
+              />
+            ))}
           </ul>
         )}
       </div>
     </div>
   );
 }
+
+export default memo(Sidebar);
 
