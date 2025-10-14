@@ -22,13 +22,13 @@ export function useCanvas(): UseCanvasReturn {
   // Track locally created shapes to avoid duplicate saves
   const locallyCreatedRef = useRef<Set<string>>(new Set());
 
-  // Subscribe to Firestore updates on mount
+  // Subscribe to Firestore updates on mount (only once)
   useEffect(() => {
     console.log('Setting up Firestore subscription...');
     
     const unsubscribe = subscribeToObjects(
       (firestoreObjects) => {
-        console.log('Received Firestore update:', firestoreObjects.length, 'shapes');
+        console.log('🔥 Firestore update received:', firestoreObjects.length, 'shapes', new Date().toISOString());
         
         // Update local state with Firestore data
         setShapes(firestoreObjects);
@@ -36,22 +36,23 @@ export function useCanvas(): UseCanvasReturn {
         // After initial load, allow saves
         if (isInitialLoadRef.current) {
           isInitialLoadRef.current = false;
-          console.log('Initial load complete, loaded', firestoreObjects.length, 'shapes');
+          console.log('✅ Initial load complete, loaded', firestoreObjects.length, 'shapes');
         } else {
-          console.log('Firestore sync update received');
+          console.log('🔄 Real-time sync update received!');
         }
       },
       (error) => {
-        console.error('Firestore subscription error:', error);
+        console.error('❌ Firestore subscription error:', error);
       }
     );
 
     // Cleanup subscription on unmount
     return () => {
-      console.log('Cleaning up Firestore subscription');
+      console.log('🧹 Cleaning up Firestore subscription');
       unsubscribe();
     };
-  }, [subscribeToObjects]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // Create a new shape
   const createShape = useCallback((x: number, y: number, createdBy: string): CanvasObject => {
