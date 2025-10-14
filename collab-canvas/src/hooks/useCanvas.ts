@@ -28,6 +28,8 @@ export function useCanvas(): UseCanvasReturn {
     
     const unsubscribe = subscribeToObjects(
       (firestoreObjects) => {
+        console.log('Received Firestore update:', firestoreObjects.length, 'shapes');
+        
         // Update local state with Firestore data
         setShapes(firestoreObjects);
         
@@ -35,6 +37,8 @@ export function useCanvas(): UseCanvasReturn {
         if (isInitialLoadRef.current) {
           isInitialLoadRef.current = false;
           console.log('Initial load complete, loaded', firestoreObjects.length, 'shapes');
+        } else {
+          console.log('Firestore sync update received');
         }
       },
       (error) => {
@@ -65,41 +69,67 @@ export function useCanvas(): UseCanvasReturn {
       lastModifiedAt: Date.now(),
     };
 
+    console.log('Creating new shape:', newShape.id);
+
     // Mark as locally created to avoid duplicate processing
     locallyCreatedRef.current.add(newShape.id);
 
-    // Save to Firestore (optimistic update - local state will be updated via subscription)
-    saveObject(newShape).catch((error) => {
-      console.error('Failed to save shape to Firestore:', error);
-      // Remove from locally created if save failed
-      locallyCreatedRef.current.delete(newShape.id);
+    // Optimistic update - add to local state immediately for instant feedback
+    setShapes(prev => {
+      console.log('Adding shape to local state, current count:', prev.length);
+      return [...prev, newShape];
     });
+
+    // Save to Firestore in background
+    console.log('Saving shape to Firestore...');
+    saveObject(newShape)
+      .then(() => {
+        console.log('Shape saved to Firestore successfully:', newShape.id);
+      })
+      .catch((error) => {
+        console.error('Failed to save shape to Firestore:', error);
+        // Remove from local state if save failed
+        setShapes(prev => prev.filter(s => s.id !== newShape.id));
+        locallyCreatedRef.current.delete(newShape.id);
+      });
 
     return newShape;
   }, [saveObject]);
 
   // Update an existing shape
   const updateShape = useCallback((id: string, updates: Partial<CanvasObject>) => {
-    // Save to Firestore (local state will be updated via subscription)
+    // Optimistic update - update local state immediately
+    setShapes(prev => prev.map(shape => 
+      shape.id === id 
+        ? { ...shape, ...updates, lastModifiedAt: Date.now() }
+        : shape
+    ));
+
+    // Save to Firestore in background
     updateObject(id, updates).catch((error) => {
       console.error('Failed to update shape in Firestore:', error);
+      // Note: Could revert optimistic update here if needed
     });
   }, [updateObject]);
 
   // Delete a shape
   const deleteShape = useCallback((id: string) => {
-    // Remove from locally created tracking
-    locallyCreatedRef.current.delete(id);
-    
-    // Delete from Firestore (local state will be updated via subscription)
-    deleteObject(id).catch((error) => {
-      console.error('Failed to delete shape from Firestore:', error);
-    });
+    // Optimistic update - remove from local state immediately
+    setShapes(prev => prev.filter(shape => shape.id !== id));
     
     // Deselect if it was selected
     if (selectedShapeId === id) {
       setSelectedShapeId(null);
     }
+    
+    // Remove from locally created tracking
+    locallyCreatedRef.current.delete(id);
+    
+    // Delete from Firestore in background
+    deleteObject(id).catch((error) => {
+      console.error('Failed to delete shape from Firestore:', error);
+      // Note: Could restore shape here if needed
+    });
   }, [selectedShapeId, deleteObject]);
 
   // Select a shape
