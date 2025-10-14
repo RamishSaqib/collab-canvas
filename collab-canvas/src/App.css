@@ -1,1 +1,24 @@
-/* App-specific styles - global styles in index.css */
+/* App container */
+.app-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.canvas-wrapper {
+  flex: 1;
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 60px); /* Full height minus toolbar */
+  overflow: hidden;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .canvas-wrapper {
+    height: calc(100vh - 88px); /* Adjust for taller mobile toolbar */
+  }
+}
