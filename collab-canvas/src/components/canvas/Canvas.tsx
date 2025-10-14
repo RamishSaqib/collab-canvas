@@ -3,7 +3,9 @@ import { Stage, Layer } from 'react-konva';
 import type Konva from 'konva';
 import { clampZoom, calculateZoomPosition, getZoomPoint, fitStageToWindow, getRelativePointerPosition } from '../../utils/canvas';
 import { useCanvas } from '../../hooks/useCanvas';
+import { useCursors } from '../../hooks/useCursors';
 import Shape from './Shape';
+import Cursor from './Cursor';
 import './Canvas.css';
 
 export type CanvasMode = 'select' | 'rectangle';
@@ -34,6 +36,12 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
     updateShape,
     selectShape,
   } = useCanvas();
+
+  const { otherCursors, broadcastCursor } = useCursors({
+    userId: user.id,
+    userName: user.name,
+    userColor: user.color,
+  });
 
   // Handle window resize
   useEffect(() => {
@@ -171,6 +179,16 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
   };
 
 
+  // Handle mouse move to broadcast cursor position
+  const handleMouseMove = () => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    // Get canvas-relative position (accounting for zoom/pan)
+    const pos = getRelativePointerPosition(stage);
+    broadcastCursor(pos.x, pos.y);
+  };
+
   // Handle shape drag start
   const handleShapeDragStart = () => {
     // Just a placeholder for now
@@ -199,6 +217,7 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
         onClick={handleStageClick}
         onTap={handleStageClick}
         onMouseDown={handleStageMouseDown}
+        onMouseMove={handleMouseMove}
       >
         <Layer listening={true}>
           {/* Render all shapes */}
@@ -210,6 +229,15 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
               onSelect={() => selectShape(shape.id)}
               onDragStart={handleShapeDragStart}
               onDragEnd={handleShapeDragEnd(shape.id)}
+            />
+          ))}
+          
+          {/* Render other users' cursors */}
+          {otherCursors.map(cursor => (
+            <Cursor
+              key={cursor.userId}
+              cursor={cursor}
+              stageScale={stageScale}
             />
           ))}
         </Layer>

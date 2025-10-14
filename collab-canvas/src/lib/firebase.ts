@@ -46,10 +46,18 @@ try {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   db = getFirestore(app);
-  rtdb = getDatabase(app);
+  
+  // Initialize Realtime Database
+  if (firebaseConfig.databaseURL) {
+    rtdb = getDatabase(app);
+    console.log('✅ Realtime Database initialized:', firebaseConfig.databaseURL);
+  } else {
+    console.warn('⚠️ VITE_FIREBASE_DATABASE_URL not set in .env.local');
+  }
   
   if (import.meta.env.DEV) {
     console.log('✅ Firebase initialized successfully');
+    console.log('Database URL:', firebaseConfig.databaseURL || 'NOT SET');
   }
 } catch (error) {
   console.error('❌ Firebase initialization error:', error);
