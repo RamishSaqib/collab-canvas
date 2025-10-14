@@ -1,0 +1,16 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Canvas objects - authenticated users can read/write
+    match /canvases/{canvasId}/objects/{objectId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow authenticated users to read/write all canvases
+    match /canvases/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+

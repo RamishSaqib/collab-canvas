@@ -1,0 +1,11 @@
+{
+  "projects": {
+    "default": "your-firebase-project-id"
+  }
+}
+
+// Instructions:
+// 1. Copy this file: cp firebaserc.example .firebaserc
+// 2. Replace "your-firebase-project-id" with your actual Firebase project ID
+// 3. Commit .firebaserc to git so team members know which project to use
+
