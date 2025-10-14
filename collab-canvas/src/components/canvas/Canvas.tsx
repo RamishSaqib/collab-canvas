@@ -7,6 +7,7 @@ import { useCursors } from '../../hooks/useCursors';
 import { checkMemoryLeaks } from '../../utils/performance';
 import Shape from './Shape';
 import Cursor from './Cursor';
+import KeyboardShortcutsModal from './KeyboardShortcutsModal';
 import './Canvas.css';
 
 export type CanvasMode = 'select' | 'rectangle';
@@ -26,6 +27,8 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
   const [stageSize, setStageSize] = useState(fitStageToWindow());
   const [stageScale, setStageScale] = useState(1);
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [deleteToast, setDeleteToast] = useState(false);
   const stageRef = useRef<Konva.Stage>(null);
   const isPanningRef = useRef(false);
   const lastPanPositionRef = useRef({ x: 0, y: 0 });
@@ -35,6 +38,7 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
     selectedShapeId,
     createShape,
     updateShape,
+    deleteShape,
     selectShape,
   } = useCanvas();
 
@@ -117,16 +121,26 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
           document.activeElement.blur();
         }
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        // Delete selected shape (will implement in next iteration)
+        // Delete selected shape
         if (selectedShapeId) {
-          // deleteShape(selectedShapeId); // Uncomment when delete is needed
+          e.preventDefault(); // Prevent browser back navigation on Backspace
+          deleteShape(selectedShapeId);
+          console.log('🗑️ Shape deleted:', selectedShapeId);
+          
+          // Show deletion feedback
+          setDeleteToast(true);
+          setTimeout(() => setDeleteToast(false), 2000);
         }
+      } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        // Show keyboard shortcuts help modal
+        e.preventDefault();
+        setShowShortcuts(true);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onModeChange, selectShape, selectedShapeId]);
+  }, [onModeChange, selectShape, deleteShape, selectedShapeId]);
 
   // Handle zoom with mouse wheel (memoized)
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -273,10 +287,45 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
         </div>
       </div>
 
+      {/* Empty state */}
+      {shapes.length === 0 && mode === 'select' && (
+        <div className="canvas-empty-state">
+          <div className="empty-state-icon">🎨</div>
+          <h2 className="empty-state-title">Start Creating!</h2>
+          <p className="empty-state-message">
+            Press <kbd>R</kbd> to create rectangles, or press <kbd>?</kbd> to see all shortcuts.
+          </p>
+        </div>
+      )}
+
       {/* Mode instructions */}
       {mode === 'rectangle' && (
         <div className="mode-instruction">
           Click anywhere on canvas to create a rectangle. Press V or ESC to exit.
+        </div>
+      )}
+
+      {/* Keyboard shortcuts help button */}
+      <button
+        className="shortcuts-help-button"
+        onClick={() => setShowShortcuts(true)}
+        aria-label="Show keyboard shortcuts"
+        title="Show keyboard shortcuts (?)"
+      >
+        ?
+      </button>
+
+      {/* Keyboard shortcuts modal */}
+      <KeyboardShortcutsModal
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
+
+      {/* Delete toast notification */}
+      {deleteToast && (
+        <div className="delete-toast">
+          <span className="toast-icon">🗑️</span>
+          <span className="toast-text">Shape deleted</span>
         </div>
       )}
     </div>
