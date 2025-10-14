@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { CanvasObject } from '../lib/types';
+import { useFirestore } from './useFirestore';
 
 interface UseCanvasReturn {
   shapes: CanvasObject[];
@@ -14,6 +15,39 @@ interface UseCanvasReturn {
 export function useCanvas(): UseCanvasReturn {
   const [shapes, setShapes] = useState<CanvasObject[]>([]);
   const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
+  const { saveObject, updateObject, deleteObject, subscribeToObjects } = useFirestore();
+  
+  // Track if we're in the initial load to avoid saving remote changes back to Firestore
+  const isInitialLoadRef = useRef(true);
+  // Track locally created shapes to avoid duplicate saves
+  const locallyCreatedRef = useRef<Set<string>>(new Set());
+
+  // Subscribe to Firestore updates on mount
+  useEffect(() => {
+    console.log('Setting up Firestore subscription...');
+    
+    const unsubscribe = subscribeToObjects(
+      (firestoreObjects) => {
+        // Update local state with Firestore data
+        setShapes(firestoreObjects);
+        
+        // After initial load, allow saves
+        if (isInitialLoadRef.current) {
+          isInitialLoadRef.current = false;
+          console.log('Initial load complete, loaded', firestoreObjects.length, 'shapes');
+        }
+      },
+      (error) => {
+        console.error('Firestore subscription error:', error);
+      }
+    );
+
+    // Cleanup subscription on unmount
+    return () => {
+      console.log('Cleaning up Firestore subscription');
+      unsubscribe();
+    };
+  }, [subscribeToObjects]);
 
   // Create a new shape
   const createShape = useCallback((x: number, y: number, createdBy: string): CanvasObject => {
@@ -31,26 +65,42 @@ export function useCanvas(): UseCanvasReturn {
       lastModifiedAt: Date.now(),
     };
 
-    setShapes(prev => [...prev, newShape]);
+    // Mark as locally created to avoid duplicate processing
+    locallyCreatedRef.current.add(newShape.id);
+
+    // Save to Firestore (optimistic update - local state will be updated via subscription)
+    saveObject(newShape).catch((error) => {
+      console.error('Failed to save shape to Firestore:', error);
+      // Remove from locally created if save failed
+      locallyCreatedRef.current.delete(newShape.id);
+    });
+
     return newShape;
-  }, []);
+  }, [saveObject]);
 
   // Update an existing shape
   const updateShape = useCallback((id: string, updates: Partial<CanvasObject>) => {
-    setShapes(prev => prev.map(shape => 
-      shape.id === id 
-        ? { ...shape, ...updates, lastModifiedAt: Date.now() }
-        : shape
-    ));
-  }, []);
+    // Save to Firestore (local state will be updated via subscription)
+    updateObject(id, updates).catch((error) => {
+      console.error('Failed to update shape in Firestore:', error);
+    });
+  }, [updateObject]);
 
   // Delete a shape
   const deleteShape = useCallback((id: string) => {
-    setShapes(prev => prev.filter(shape => shape.id !== id));
+    // Remove from locally created tracking
+    locallyCreatedRef.current.delete(id);
+    
+    // Delete from Firestore (local state will be updated via subscription)
+    deleteObject(id).catch((error) => {
+      console.error('Failed to delete shape from Firestore:', error);
+    });
+    
+    // Deselect if it was selected
     if (selectedShapeId === id) {
       setSelectedShapeId(null);
     }
-  }, [selectedShapeId]);
+  }, [selectedShapeId, deleteObject]);
 
   // Select a shape
   const selectShape = useCallback((id: string | null) => {
