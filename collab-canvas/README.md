@@ -2,6 +2,12 @@
 
 A real-time collaborative canvas application built with React, TypeScript, and Firebase. Think Figma-like multiplayer experience with synchronized shapes, cursors, and presence awareness.
 
+## 🌐 Live Demo
+
+**Try it now:** [https://collab-canvas-d3589.web.app](https://collab-canvas-d3589.web.app)
+
+Open the app in multiple browser windows to experience real-time collaboration!
+
 ## 🎯 MVP Features
 
 - **Canvas Workspace**: Pan and zoom functionality with 60 FPS performance
@@ -24,22 +30,26 @@ A real-time collaborative canvas application built with React, TypeScript, and F
 
 - Node.js 20.19+ or 22.12+
 - npm or yarn
-- Firebase account
+- Firebase account (for your own deployment)
 
-## 🛠️ Setup Instructions
+## 🚀 Quick Start
+
+Want to run this locally? Follow these steps:
 
 ### 1. Clone the repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/RamishSaqib/collab-canvas.git
 cd collab-canvas
 ```
 
 ### 2. Install dependencies
 
 ```bash
-npm install
+npm install --legacy-peer-deps
 ```
+
+> **Note:** The `--legacy-peer-deps` flag is needed for React 19 compatibility.
 
 ### 3. Create Firebase project
 
@@ -103,7 +113,11 @@ firebase deploy --only database
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+The app will be running at [http://localhost:5173](http://localhost:5173) (or the next available port if 5173 is in use).
+
+### 🎉 You're Ready!
+
+Open the app in multiple browser windows or tabs to test real-time collaboration features.
 
 ## 🧪 Testing
 
@@ -133,11 +147,16 @@ npm run preview
 Deploy to Firebase Hosting:
 
 ```bash
+# Build the production bundle
 npm run build
+
+# Deploy to Firebase
 firebase deploy --only hosting
 ```
 
 Your app will be live at: `https://your-project-id.web.app`
+
+**Official Deployment:** [https://collab-canvas-d3589.web.app](https://collab-canvas-d3589.web.app)
 
 ## 📁 Project Structure
 
