@@ -8,17 +8,22 @@
   position: relative;
 }
 
+.main-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  height: calc(100vh - 60px); /* Full height minus toolbar */
+}
+
 .canvas-wrapper {
   flex: 1;
   position: relative;
-  width: 100%;
-  height: calc(100vh - 60px); /* Full height minus toolbar */
   overflow: hidden;
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-  .canvas-wrapper {
+  .main-content {
     height: calc(100vh - 88px); /* Adjust for taller mobile toolbar */
   }
 }
