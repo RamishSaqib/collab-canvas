@@ -17,7 +17,7 @@ const CANVAS_ID = 'main-canvas'; // Single shared canvas for MVP
 interface PendingUpdate {
   objectId: string;
   updates: Partial<CanvasObject>;
-  timeoutId: NodeJS.Timeout;
+  timeoutId: ReturnType<typeof setTimeout>;
 }
 
 const pendingUpdates = new Map<string, PendingUpdate>();

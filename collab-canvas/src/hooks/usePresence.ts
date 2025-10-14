@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ref, onValue, set, onDisconnect, serverTimestamp, off } from 'firebase/database';
+import { ref, onValue, set, onDisconnect, off } from 'firebase/database';
 import { rtdb } from '../lib/firebase';
 import type { Presence } from '../lib/types';
 
