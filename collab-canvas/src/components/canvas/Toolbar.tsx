@@ -10,9 +10,12 @@ interface ToolbarProps {
   onSignOut: () => void;
   mode: CanvasMode;
   onModeChange: (mode: CanvasMode) => void;
+  selectedColor: string;
+  showColorPicker: boolean;
+  onToggleColorPicker: () => void;
 }
 
-export default function Toolbar({ user, onSignOut, mode, onModeChange }: ToolbarProps) {
+export default function Toolbar({ user, onSignOut, mode, onModeChange, selectedColor, showColorPicker, onToggleColorPicker }: ToolbarProps) {
   const handleToolClick = (tool: CanvasMode) => {
     onModeChange(tool);
   };
@@ -67,6 +70,22 @@ export default function Toolbar({ user, onSignOut, mode, onModeChange }: Toolbar
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
               <path d="M6 4h8v2h-3v10h-2V6H6V4z" />
             </svg>
+          </button>
+          <div className="toolbar-divider"></div>
+          <button 
+            className={`tool-button color-button ${showColorPicker ? 'active' : ''}`}
+            title="Color Picker (P)" 
+            onClick={onToggleColorPicker}
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="10" cy="10" r="7" />
+              <path d="M10 6 L10 10 L13 10" strokeLinecap="round" />
+            </svg>
+            <div 
+              className="color-swatch"
+              style={{ backgroundColor: selectedColor }}
+              title={selectedColor}
+            />
           </button>
         </div>
       </div>

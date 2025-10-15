@@ -8,6 +8,7 @@ import { checkMemoryLeaks } from '../../utils/performance';
 import Shape from './Shape';
 import Cursor from './Cursor';
 import KeyboardShortcutsModal from './KeyboardShortcutsModal';
+import ColorPicker from './ColorPicker';
 import './Canvas.css';
 
 export type CanvasMode = 'select' | 'rectangle' | 'circle' | 'triangle' | 'text';
@@ -21,9 +22,13 @@ interface CanvasProps {
   };
   mode: CanvasMode;
   onModeChange: (mode: CanvasMode) => void;
+  selectedColor: string;
+  onColorChange: (color: string) => void;
+  showColorPicker: boolean;
+  onCloseColorPicker: () => void;
 }
 
-export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
+export default function Canvas({ user, mode, onModeChange, selectedColor, onColorChange, showColorPicker, onCloseColorPicker }: CanvasProps) {
   const [stageSize, setStageSize] = useState(fitStageToWindow());
   const [stageScale, setStageScale] = useState(1);
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
@@ -204,18 +209,18 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
     // If clicking on the stage itself (not a shape)
     if (e.target === e.target.getStage()) {
       if (mode === 'rectangle' || mode === 'circle' || mode === 'triangle' || mode === 'text') {
-        // Create shape at click position based on current mode
+        // Create shape at click position based on current mode with selected color
         const stage = stageRef.current;
         if (stage) {
           const pos = getRelativePointerPosition(stage);
-          createShape(pos.x, pos.y, user.id, mode);
+          createShape(pos.x, pos.y, user.id, mode, selectedColor);
         }
       } else {
         // Deselect when clicking empty canvas in select mode
         selectShape(null);
       }
     }
-  }, [mode, createShape, selectShape, user.id]);
+  }, [mode, createShape, selectShape, user.id, selectedColor]);
 
   // Manual panning: Handle mouse down on stage - memoized
   const handleStageMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -331,6 +336,17 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
       top: pos.y,
     };
   }, [editingTextId, shapes]);
+
+  // Apply selected color to currently selected shape
+  const handleApplyColorToSelected = useCallback(() => {
+    if (selectedShapeId) {
+      updateShape(selectedShapeId, { 
+        fill: selectedColor,
+        lastModifiedBy: user.id 
+      });
+      onCloseColorPicker();
+    }
+  }, [selectedShapeId, selectedColor, updateShape, user.id, onCloseColorPicker]);
 
   return (
     <div className="canvas-container">
@@ -483,6 +499,17 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
             zIndex: 1000,
             minWidth: '100px',
           }}
+        />
+      )}
+
+      {/* Color picker modal */}
+      {showColorPicker && (
+        <ColorPicker
+          selectedColor={selectedColor}
+          onColorChange={onColorChange}
+          onClose={onCloseColorPicker}
+          onApply={selectedShapeId ? handleApplyColorToSelected : undefined}
+          showApply={!!selectedShapeId}
         />
       )}
     </div>

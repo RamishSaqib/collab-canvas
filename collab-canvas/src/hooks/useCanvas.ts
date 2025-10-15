@@ -8,7 +8,7 @@ interface UseCanvasReturn {
   shapes: CanvasObject[];
   selectedShapeId: string | null;
   activeShapes: Map<string, ActiveShape>;
-  createShape: (x: number, y: number, createdBy: string, type?: 'rectangle' | 'circle' | 'triangle' | 'text') => CanvasObject;
+  createShape: (x: number, y: number, createdBy: string, type?: 'rectangle' | 'circle' | 'triangle' | 'text', color?: string) => CanvasObject;
   updateShape: (id: string, updates: Partial<CanvasObject>) => void;
   deleteShape: (id: string) => void;
   selectShape: (id: string | null) => void;
@@ -133,13 +133,13 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
   }, [firestoreShapes, activeShapes]);
 
   // Create a new shape
-  const createShape = useCallback((x: number, y: number, createdBy: string, type: 'rectangle' | 'circle' | 'triangle' | 'text' = 'rectangle'): CanvasObject => {
+  const createShape = useCallback((x: number, y: number, createdBy: string, type: 'rectangle' | 'circle' | 'triangle' | 'text' = 'rectangle', color?: string): CanvasObject => {
     const baseShape = {
       id: crypto.randomUUID(),
       type,
       x,
       y,
-      fill: generateRandomColor(),
+      fill: color || generateRandomColor(),
       rotation: 0,
       createdBy,
       lastModifiedBy: createdBy,
