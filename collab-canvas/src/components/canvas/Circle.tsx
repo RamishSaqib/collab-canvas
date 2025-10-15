@@ -10,18 +10,19 @@ interface CircleProps {
   isSelected: boolean;
   isActive?: boolean;
   activeBy?: ActiveShape;
-  onSelect: () => void;
+  onSelect: (e: any) => void;
   onDragStart: () => void;
   onDragMove?: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => void;
   userName?: string; // Name of user who last modified (for tooltip)
+  shapeRef?: (node: Konva.Node | null) => void;
 }
 
 /**
  * Memoized Circle component for optimal rendering performance
  * Only re-renders when shape data, selection state, or callbacks change
  */
-function Circle({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, userName }: CircleProps) {
+function Circle({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, userName, shapeRef }: CircleProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
@@ -54,7 +55,7 @@ function Circle({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, 
   const handleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
     // Prevent stage click event
     e.cancelBubble = true;
-    onSelect();
+    onSelect(e);
   };
 
   // Determine stroke color and style based on state
@@ -83,11 +84,14 @@ function Circle({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, 
   return (
     <Group>
       <KonvaCircle
+        id={shape.id}
+        ref={shapeRef as any}
         name={`shape-${shape.id}`}
         x={shape.x}
         y={shape.y}
         radius={radius}
         fill={shape.fill}
+        rotation={shape.rotation || 0}
         draggable
         listening={true}
         perfectDrawEnabled={false}

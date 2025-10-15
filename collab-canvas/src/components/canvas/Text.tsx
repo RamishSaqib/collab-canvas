@@ -10,12 +10,13 @@ interface TextProps {
   isSelected: boolean;
   isActive?: boolean;
   activeBy?: ActiveShape;
-  onSelect: () => void;
+  onSelect: (e: any) => void;
   onDragStart: () => void;
   onDragMove?: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onDoubleClick?: () => void;
   userName?: string; // Name of user who last modified (for tooltip)
+  shapeRef?: (node: Konva.Node | null) => void;
 }
 
 /**
@@ -23,7 +24,7 @@ interface TextProps {
  * Supports double-click to trigger editing (handled at Canvas level)
  * Only re-renders when shape data, selection state, or callbacks change
  */
-function Text({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, onDoubleClick, userName }: TextProps) {
+function Text({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, onDoubleClick, userName, shapeRef }: TextProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
@@ -56,7 +57,7 @@ function Text({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, on
   const handleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
     // Prevent stage click event
     e.cancelBubble = true;
-    onSelect();
+    onSelect(e);
   };
 
   const handleDoubleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -91,6 +92,8 @@ function Text({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, on
   return (
     <Group>
       <KonvaText
+        id={shape.id}
+        ref={shapeRef as any}
         name={`shape-${shape.id}`}
         x={shape.x}
         y={shape.y}
@@ -98,6 +101,9 @@ function Text({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, on
         fontSize={shape.fontSize || 24}
         fontFamily="Arial"
         fill={shape.fill}
+        fontStyle={shape.fontStyle || 'normal'}
+        align={shape.textAlign || 'left'}
+        rotation={shape.rotation || 0}
         draggable
         listening={true}
         perfectDrawEnabled={false}
