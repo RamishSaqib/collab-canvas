@@ -15,6 +15,15 @@
           ".write": "auth != null && auth.uid == $userId"
         }
       }
+    },
+    "active-shapes": {
+      "$canvasId": {
+        ".read": "auth != null",
+        "$shapeId": {
+          ".write": "auth != null",
+          ".validate": "newData.hasChildren(['x', 'y', 'userId', 'timestamp'])"
+        }
+      }
     }
   }
 }

@@ -1,21 +1,47 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { CanvasObject } from '../lib/types';
 import { useFirestore } from './useFirestore';
+import { useRealtimeSync, type ActiveShape } from './useRealtimeSync';
+import type { User } from '../lib/types';
 
 interface UseCanvasReturn {
   shapes: CanvasObject[];
   selectedShapeId: string | null;
+  activeShapes: Map<string, ActiveShape>;
   createShape: (x: number, y: number, createdBy: string, type?: 'rectangle' | 'circle' | 'triangle' | 'text') => CanvasObject;
   updateShape: (id: string, updates: Partial<CanvasObject>) => void;
   deleteShape: (id: string) => void;
   selectShape: (id: string | null) => void;
   getShape: (id: string) => CanvasObject | undefined;
+  // RTDB operations
+  updateActivePosition: (shapeId: string, x: number, y: number) => void;
+  updateActiveText: (shapeId: string, text: string) => void;
+  markShapeActive: (shapeId: string, x: number, y: number, type?: 'drag' | 'edit') => void;
+  markShapeInactive: (shapeId: string) => void;
 }
 
-export function useCanvas(): UseCanvasReturn {
-  const [shapes, setShapes] = useState<CanvasObject[]>([]);
+interface UseCanvasProps {
+  user: User;
+}
+
+export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
+  const [firestoreShapes, setFirestoreShapes] = useState<CanvasObject[]>([]);
+  const [activeShapes, setActiveShapes] = useState<Map<string, ActiveShape>>(new Map());
   const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
+  
   const { saveObject, updateObject, deleteObject, subscribeToObjects, flushAllUpdates } = useFirestore();
+  const {
+    updateActivePosition,
+    updateActiveText,
+    markShapeActive,
+    markShapeInactive,
+    subscribeToActiveShapes,
+    isAvailable: isRTDBAvailable,
+  } = useRealtimeSync({
+    userId: user.id,
+    userName: user.name,
+    userColor: user.color,
+  });
   
   // Track if we're in the initial load to avoid saving remote changes back to Firestore
   const isInitialLoadRef = useRef(true);
@@ -30,8 +56,8 @@ export function useCanvas(): UseCanvasReturn {
       (firestoreObjects) => {
         console.log('🔥 Firestore update received:', firestoreObjects.length, 'shapes', new Date().toISOString());
         
-        // Update local state with Firestore data
-        setShapes(firestoreObjects);
+        // Update Firestore shapes state
+        setFirestoreShapes(firestoreObjects);
         
         // After initial load, allow saves
         if (isInitialLoadRef.current) {
@@ -59,6 +85,52 @@ export function useCanvas(): UseCanvasReturn {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
+
+  // Subscribe to Realtime Database active shapes
+  useEffect(() => {
+    if (!isRTDBAvailable()) {
+      console.warn('⚠️ RTDB not available, falling back to Firestore-only mode');
+      return;
+    }
+
+    console.log('Setting up RTDB active shapes subscription...');
+    
+    const unsubscribe = subscribeToActiveShapes(
+      (activeShapesMap) => {
+        console.log('⚡ RTDB active shapes update:', activeShapesMap.size, 'active');
+        setActiveShapes(activeShapesMap);
+      },
+      (error) => {
+        console.error('❌ RTDB subscription error:', error);
+      }
+    );
+
+    return () => {
+      console.log('🧹 Cleaning up RTDB subscription');
+      unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subscribeToActiveShapes, isRTDBAvailable]);
+
+  // Merge Firestore shapes with RTDB active shapes
+  const shapes = React.useMemo(() => {
+    return firestoreShapes.map(shape => {
+      const activeShape = activeShapes.get(shape.id);
+      
+      // If shape is actively being edited by someone
+      if (activeShape) {
+        // Prioritize RTDB data for position and text
+        return {
+          ...shape,
+          x: activeShape.type === 'drag' ? activeShape.x : shape.x,
+          y: activeShape.type === 'drag' ? activeShape.y : shape.y,
+          text: activeShape.type === 'edit' && activeShape.text ? activeShape.text : shape.text,
+        };
+      }
+      
+      return shape;
+    });
+  }, [firestoreShapes, activeShapes]);
 
   // Create a new shape
   const createShape = useCallback((x: number, y: number, createdBy: string, type: 'rectangle' | 'circle' | 'triangle' | 'text' = 'rectangle'): CanvasObject => {
@@ -116,9 +188,9 @@ export function useCanvas(): UseCanvasReturn {
     // Mark as locally created to avoid duplicate processing
     locallyCreatedRef.current.add(newShape.id);
 
-    // Optimistic update - add to local state immediately for instant feedback
-    setShapes(prev => {
-      console.log('Adding shape to local state, current count:', prev.length);
+    // Optimistic update - add to Firestore shapes immediately for instant feedback
+    setFirestoreShapes(prev => {
+      console.log('Adding shape to Firestore state, current count:', prev.length);
       return [...prev, newShape];
     });
 
@@ -131,7 +203,7 @@ export function useCanvas(): UseCanvasReturn {
       .catch((error) => {
         console.error('Failed to save shape to Firestore:', error);
         // Remove from local state if save failed
-        setShapes(prev => prev.filter(s => s.id !== newShape.id));
+        setFirestoreShapes(prev => prev.filter(s => s.id !== newShape.id));
         locallyCreatedRef.current.delete(newShape.id);
       });
 
@@ -140,14 +212,14 @@ export function useCanvas(): UseCanvasReturn {
 
   // Update an existing shape
   const updateShape = useCallback((id: string, updates: Partial<CanvasObject>) => {
-    // Optimistic update - update local state immediately
-    setShapes(prev => prev.map(shape => 
+    // Optimistic update - update Firestore shapes immediately
+    setFirestoreShapes(prev => prev.map(shape => 
       shape.id === id 
         ? { ...shape, ...updates, lastModifiedAt: Date.now() }
         : shape
     ));
 
-    // Save to Firestore in background
+    // Save to Firestore in background (debounced 100ms)
     updateObject(id, updates).catch((error) => {
       console.error('Failed to update shape in Firestore:', error);
       // Note: Could revert optimistic update here if needed
@@ -156,8 +228,8 @@ export function useCanvas(): UseCanvasReturn {
 
   // Delete a shape
   const deleteShape = useCallback((id: string) => {
-    // Optimistic update - remove from local state immediately
-    setShapes(prev => prev.filter(shape => shape.id !== id));
+    // Optimistic update - remove from Firestore shapes immediately
+    setFirestoreShapes(prev => prev.filter(shape => shape.id !== id));
     
     // Deselect if it was selected
     if (selectedShapeId === id) {
@@ -167,12 +239,15 @@ export function useCanvas(): UseCanvasReturn {
     // Remove from locally created tracking
     locallyCreatedRef.current.delete(id);
     
+    // Also mark as inactive in RTDB if it was active
+    markShapeInactive(id);
+    
     // Delete from Firestore in background
     deleteObject(id).catch((error) => {
       console.error('Failed to delete shape from Firestore:', error);
       // Note: Could restore shape here if needed
     });
-  }, [selectedShapeId, deleteObject]);
+  }, [selectedShapeId, deleteObject, markShapeInactive]);
 
   // Select a shape
   const selectShape = useCallback((id: string | null) => {
@@ -187,11 +262,17 @@ export function useCanvas(): UseCanvasReturn {
   return {
     shapes,
     selectedShapeId,
+    activeShapes,
     createShape,
     updateShape,
     deleteShape,
     selectShape,
     getShape,
+    // RTDB operations for hybrid sync
+    updateActivePosition,
+    updateActiveText,
+    markShapeActive,
+    markShapeInactive,
   };
 }
 

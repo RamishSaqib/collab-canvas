@@ -2,15 +2,19 @@ import { memo } from 'react';
 import { Rect } from 'react-konva';
 import type Konva from 'konva';
 import type { CanvasObject } from '../../lib/types';
+import type { ActiveShape } from '../../hooks/useRealtimeSync';
 import Circle from './Circle';
 import Triangle from './Triangle';
 import Text from './Text';
 
-interface ShapeProps {
+export interface ShapeProps {
   shape: CanvasObject;
   isSelected: boolean;
+  isActive?: boolean;
+  activeBy?: ActiveShape;
   onSelect: () => void;
   onDragStart: () => void;
+  onDragMove?: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onTextChange?: (newText: string) => void;
   onTextDoubleClick?: () => void;
@@ -20,8 +24,11 @@ interface ShapeProps {
  * Memoized Shape component for optimal rendering performance
  * Only re-renders when shape data, selection state, or callbacks change
  * Renders different components based on shape type
+ * 
+ * isActive indicates the shape is being edited by someone in real-time
+ * activeBy contains info about who is editing (userId, userName, userColor)
  */
-function Shape({ shape, isSelected, onSelect, onDragStart, onDragEnd, onTextDoubleClick }: ShapeProps) {
+function Shape({ shape, isSelected, isActive: _isActive, activeBy: _activeBy, onSelect, onDragStart, onDragMove, onDragEnd, onTextDoubleClick }: ShapeProps) {
   // Render different components based on shape type
   if (shape.type === 'circle') {
     return (
@@ -30,6 +37,7 @@ function Shape({ shape, isSelected, onSelect, onDragStart, onDragEnd, onTextDoub
         isSelected={isSelected}
         onSelect={onSelect}
         onDragStart={onDragStart}
+        onDragMove={onDragMove}
         onDragEnd={onDragEnd}
       />
     );
@@ -42,6 +50,7 @@ function Shape({ shape, isSelected, onSelect, onDragStart, onDragEnd, onTextDoub
         isSelected={isSelected}
         onSelect={onSelect}
         onDragStart={onDragStart}
+        onDragMove={onDragMove}
         onDragEnd={onDragEnd}
       />
     );
@@ -54,6 +63,7 @@ function Shape({ shape, isSelected, onSelect, onDragStart, onDragEnd, onTextDoub
         isSelected={isSelected}
         onSelect={onSelect}
         onDragStart={onDragStart}
+        onDragMove={onDragMove}
         onDragEnd={onDragEnd}
         onDoubleClick={onTextDoubleClick}
       />
@@ -72,6 +82,10 @@ function Shape({ shape, isSelected, onSelect, onDragStart, onDragEnd, onTextDoub
   const handleDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
     // Prevent stage from being dragged
     e.cancelBubble = true;
+    // Call parent handler for RTDB updates
+    if (onDragMove) {
+      onDragMove(e);
+    }
   };
 
   const handleDragEnd = (e: Konva.KonvaEventObject<DragEvent>) => {
@@ -138,6 +152,8 @@ function Shape({ shape, isSelected, onSelect, onDragStart, onDragEnd, onTextDoub
 /**
  * Custom comparison function for memo
  * Prevents re-renders when shape properties haven't changed
+ * 
+ * Note: We intentionally check isActive to re-render when someone starts/stops editing
  */
 function arePropsEqual(prevProps: ShapeProps, nextProps: ShapeProps) {
   return (
@@ -152,9 +168,11 @@ function arePropsEqual(prevProps: ShapeProps, nextProps: ShapeProps) {
     prevProps.shape.fontSize === nextProps.shape.fontSize &&
     prevProps.shape.fill === nextProps.shape.fill &&
     prevProps.shape.rotation === nextProps.shape.rotation &&
-    prevProps.isSelected === nextProps.isSelected
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isActive === nextProps.isActive
   );
 }
 
-export default memo(Shape, arePropsEqual);
+const MemoizedShape = memo(Shape, arePropsEqual);
+export default MemoizedShape;
 

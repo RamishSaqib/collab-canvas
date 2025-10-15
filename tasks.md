@@ -943,3 +943,164 @@ MVP is 100% complete! Ready for post-MVP enhancements (additional shape types, A
   - Test all features in production
 
 **PR Title:** `feat: add circle, triangle, and text shape types`
+
+---
+
+## PR #12: Hybrid Sync Architecture - Ultra-Low Latency
+**Goal:** Reduce multiplayer sync latency from ~350ms to ~20-30ms using two-tier RTDB/Firestore architecture
+
+### Tasks:
+
+#### 1. Architecture Design & Planning
+- [ ] Document two-tier sync architecture
+  - **Files:** Create `ARCHITECTURE-SYNC.md` design doc
+  - Define RTDB data structure for active shapes
+  - Define sync flow (drag start → move → end)
+  - Plan conflict resolution strategy
+  - Design automatic cleanup mechanism
+
+#### 2. Reduce Firestore Debounce (Quick Win)
+- [ ] Update debounce timing in useFirestore
+  - **Files:** `src/hooks/useFirestore.ts`
+  - Change debounce from 300ms → 100ms
+  - Add comments explaining the two-tier strategy
+  - **Expected improvement: 300ms → 100ms immediately**
+
+#### 3. Create useRealtimeSync Hook
+- [ ] Build new hook for RTDB active shape updates
+  - **Files:** `src/hooks/useRealtimeSync.ts`
+  - `updateActivePosition(shapeId, x, y)` - Update shape position in RTDB
+  - `updateActiveText(shapeId, text)` - Update text content in RTDB
+  - `subscribeToActiveShapes(callback)` - Listen to active shape changes
+  - `markShapeActive(shapeId)` - Mark shape as being edited
+  - `markShapeInactive(shapeId)` - Remove from active tracking
+  - `cleanupStaleShapes()` - Remove shapes inactive for >5 seconds
+  - Throttle updates to ~60 Hz (16ms intervals)
+  - Return active shapes with timestamps
+
+#### 4. Update useCanvas Hook for Hybrid Sync
+- [ ] Integrate hybrid sync strategy
+  - **Files:** `src/hooks/useCanvas.ts`
+  - Add `useRealtimeSync` hook integration
+  - Merge Firestore shapes + RTDB active shapes
+  - Prioritize RTDB positions over Firestore (if newer)
+  - Track which shapes are being actively edited
+  - Add `isDragging` state per shape
+
+#### 5. Update Canvas Component - Drag Events
+- [ ] Implement two-tier update flow for dragging
+  - **Files:** `src/components/canvas/Canvas.tsx`
+  - **On Drag Start:** 
+    - Mark shape as active in RTDB
+    - Disable Firestore debounce for this shape
+  - **During Drag Move:**
+    - Update position in RTDB immediately (no debounce)
+    - Skip Firestore update (wait for drag end)
+  - **On Drag End:**
+    - Update final position in Firestore
+    - Mark shape inactive in RTDB
+    - Clean up RTDB entry after 1 second
+
+#### 6. Update Canvas Component - Text Editing
+- [ ] Implement two-tier update flow for text
+  - **Files:** `src/components/canvas/Canvas.tsx`
+  - **On Edit Start:** Mark text shape as active
+  - **During Editing:** Update text in RTDB on every keystroke
+  - **On Edit Complete:** Save final text to Firestore
+  - **On Edit Cancel:** Revert to Firestore value
+
+#### 7. Add Active Shape Visual Indicators
+- [ ] Show which shapes are being edited by others
+  - **Files:** `src/components/canvas/Shape.tsx`, CSS files
+  - Add pulsing border for shapes being edited by others
+  - Show user name label near actively edited shapes
+  - Different visual for "being dragged" vs "selected"
+  - Use user color for active editing indicator
+
+#### 8. Implement Conflict Resolution
+- [ ] Handle simultaneous edits gracefully
+  - **Files:** `src/hooks/useRealtimeSync.ts`
+  - If two users drag same shape: last touch wins
+  - Show warning toast when conflict detected
+  - Add timestamp comparison for tie-breaking
+  - Log conflicts for debugging
+
+#### 9. Add Automatic Cleanup
+- [ ] Clean up stale RTDB entries
+  - **Files:** `src/hooks/useRealtimeSync.ts`
+  - Run cleanup every 10 seconds
+  - Remove shapes inactive for >5 seconds
+  - Handle disconnected users (onDisconnect)
+  - Prevent memory leaks in RTDB
+
+#### 10. Add Fallback Mechanism
+- [ ] Graceful degradation if RTDB unavailable
+  - **Files:** `src/hooks/useCanvas.ts`
+  - Detect RTDB connection failure
+  - Fall back to Firestore-only mode
+  - Show toast notification: "Real-time sync limited"
+  - Auto-recover when RTDB reconnects
+
+#### 11. Update Performance Monitoring
+- [ ] Add latency measurement and logging
+  - **Files:** `src/utils/performance.ts`
+  - Measure update latency (local → remote → display)
+  - Log to console in dev mode
+  - Track average, min, max latency
+  - Add performance overlay (optional toggle)
+  - Compare Firestore vs RTDB latency
+
+#### 12. Update Database Rules
+- [ ] Add RTDB security rules for active-shapes
+  - **Files:** `database.rules.json`
+  - Path: `active-shapes/{canvasId}/{shapeId}`
+  - Allow authenticated users to read all active shapes
+  - Allow users to write own updates
+  - Auto-delete on disconnect
+
+#### 13. Test Latency Improvements
+- [ ] Manual testing with multiple users
+  - Open 3-5 browser windows
+  - Measure latency with stopwatch/screen recording
+  - Test simultaneous shape dragging
+  - Test text editing from multiple users
+  - Verify <30ms average latency
+  - Test with 10+ shapes being moved simultaneously
+
+#### 14. Test Edge Cases
+- [ ] Test failure scenarios
+  - Network interruption during drag
+  - User closes browser mid-drag
+  - Multiple users grab same shape
+  - RTDB quota exceeded
+  - Firestore quota exceeded
+  - Verify no data loss in all cases
+
+#### 15. Performance Benchmarking
+- [ ] Create performance comparison report
+  - **Files:** Create `PERFORMANCE-COMPARISON.md`
+  - Before: Firestore-only latency
+  - After: Hybrid sync latency
+  - Chart showing improvement (350ms → 20-30ms)
+  - Test with 1, 3, 5, 10 concurrent users
+  - Document Firebase usage stats
+
+#### 16. Update Documentation
+- [ ] Update README and architecture docs
+  - **Files:** `README.md`, `PERFORMANCE.md`, `ARCHITECTURE-SYNC.md`
+  - Document two-tier sync architecture
+  - Add latency comparison section
+  - Update performance targets
+  - Add troubleshooting for sync issues
+
+#### 17. Build, Test, and Deploy
+- [ ] Production deployment with testing
+  - Run full test suite
+  - Build production bundle
+  - Test locally with `npm run preview`
+  - Deploy to Firebase
+  - Test live production site
+  - Monitor Firebase console for errors
+  - Compare before/after latency in production
+
+**PR Title:** `perf: implement hybrid RTDB/Firestore sync for 90% latency reduction`

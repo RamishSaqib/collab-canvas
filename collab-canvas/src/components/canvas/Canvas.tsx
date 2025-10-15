@@ -39,11 +39,15 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
   const {
     shapes,
     selectedShapeId,
+    activeShapes,
     createShape,
     updateShape,
     deleteShape,
     selectShape,
-  } = useCanvas();
+    updateActivePosition,
+    markShapeActive,
+    markShapeInactive,
+  } = useCanvas({ user });
 
   const { otherCursors, broadcastCursor } = useCursors({
     userId: user.id,
@@ -239,18 +243,39 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
   }, [broadcastCursor]);
 
   // Handle shape drag start - memoized
-  const handleShapeDragStart = useCallback(() => {
-    // Just a placeholder for now
-  }, []);
+  const handleShapeDragStart = useCallback((shapeId: string) => () => {
+    const shape = shapes.find(s => s.id === shapeId);
+    if (shape) {
+      // Mark shape as active in RTDB for ultra-low latency updates
+      markShapeActive(shapeId, shape.x, shape.y, 'drag');
+      console.log('⚡ Shape drag started, marked active in RTDB:', shapeId);
+    }
+  }, [shapes, markShapeActive]);
+
+  // Handle shape drag move - memoized  
+  const handleShapeDragMove = useCallback((shapeId: string) => (e: Konva.KonvaEventObject<DragEvent>) => {
+    // Update position in RTDB immediately (no debounce, ~20ms latency)
+    updateActivePosition(shapeId, e.target.x(), e.target.y());
+    // Skip Firestore update during drag (will update on drag end)
+  }, [updateActivePosition]);
 
   // Handle shape drag end - memoized
   const handleShapeDragEnd = useCallback((shapeId: string) => (e: Konva.KonvaEventObject<DragEvent>) => {
+    const finalX = e.target.x();
+    const finalY = e.target.y();
+    
+    console.log('⚡ Shape drag ended, saving final position to Firestore:', shapeId);
+    
+    // Update final position in Firestore (debounced 100ms)
     updateShape(shapeId, {
-      x: e.target.x(),
-      y: e.target.y(),
+      x: finalX,
+      y: finalY,
       lastModifiedBy: user.id,
     });
-  }, [updateShape, user.id]);
+    
+    // Mark shape as inactive in RTDB (will clean up after 1 second)
+    markShapeInactive(shapeId);
+  }, [updateShape, user.id, markShapeInactive]);
 
   // Handle text double-click to start editing - memoized
   const handleTextDoubleClick = useCallback((shapeId: string) => () => {
@@ -326,16 +351,20 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
         <Layer listening={true}>
           {/* Render all shapes */}
           {shapes.map(shape => {
-            // Memoize onSelect callback per shape to avoid recreating on every render
+            // Memoize callbacks per shape to avoid recreating on every render
             const handleSelect = () => selectShape(shape.id);
+            const isActive = activeShapes.has(shape.id);
             
             return (
               <Shape
                 key={shape.id}
                 shape={shape}
                 isSelected={shape.id === selectedShapeId}
+                isActive={isActive}
+                activeBy={isActive ? activeShapes.get(shape.id) : undefined}
                 onSelect={handleSelect}
-                onDragStart={handleShapeDragStart}
+                onDragStart={handleShapeDragStart(shape.id)}
+                onDragMove={handleShapeDragMove(shape.id)}
                 onDragEnd={handleShapeDragEnd(shape.id)}
                 onTextDoubleClick={shape.type === 'text' ? handleTextDoubleClick(shape.id) : undefined}
               />

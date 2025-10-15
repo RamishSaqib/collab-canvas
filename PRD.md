@@ -427,6 +427,90 @@ Focus: Nail the core designer experience and multiplayer sync. Everything else i
 ✅ No regressions in existing rectangle functionality  
 ✅ Deployed to production with full testing
 
+---
+
+### PR #12: Hybrid Sync Architecture - Ultra-Low Latency ⚡
+**Status:** In Progress  
+**Goal:** Reduce multiplayer sync latency from ~350ms to ~20-30ms (90% improvement)
+
+#### Problem Statement:
+Current architecture uses Firestore for all shape updates with 300ms debouncing, resulting in noticeable lag during collaborative editing. Users experience:
+- 300ms+ delay when moving shapes
+- Laggy feeling during real-time collaboration
+- Suboptimal experience with 3+ concurrent users
+
+#### Solution: Two-Tier Hybrid Architecture
+
+**Tier 1 - Realtime Database (Active Updates):**
+- Live shape positions during drag operations
+- Text content during editing
+- All "in-progress" ephemeral changes
+- **Latency: 10-20ms** (no debouncing needed)
+
+**Tier 2 - Firestore (Persistence Layer):**
+- Final state on drag end / edit complete
+- Shape creation and deletion
+- Permanent shape properties (color, type, etc.)
+- **Purpose: Data persistence and recovery**
+
+#### Technical Implementation:
+
+**New Data Structure:**
+```typescript
+// Realtime Database (ephemeral, high-frequency)
+/active-shapes/
+  main-canvas/
+    {shapeId}: {
+      x: number,
+      y: number,
+      updatedBy: userId,
+      timestamp: number
+    }
+
+// Firestore (persistent, low-frequency)
+canvases/main-canvas/objects/{shapeId}
+  // Full shape data (unchanged)
+```
+
+**Update Flow:**
+1. **On Drag Start**: Mark shape as "active" in RTDB
+2. **During Drag Move**: Update position in RTDB (every frame, no debounce)
+3. **On Drag End**: 
+   - Update final position in Firestore
+   - Remove from RTDB active shapes
+4. **On Load**: Merge Firestore (persistent) + RTDB (active)
+
+#### Features to Implement:
+- ✅ New `useRealtimeSync` hook for RTDB operations
+- ✅ Reduce Firestore debounce: 300ms → 100ms
+- ✅ Hybrid sync manager to coordinate both databases
+- ✅ Active shape tracking (which shapes are being edited)
+- ✅ Conflict resolution for simultaneous edits
+- ✅ Automatic cleanup of stale RTDB entries
+- ✅ Fallback to Firestore if RTDB unavailable
+
+#### Performance Targets:
+- **Shape move latency:** 350ms → 20-30ms ⚡ (90% improvement)
+- **Text edit latency:** 350ms → 20-30ms ⚡
+- **Cursor latency:** <35ms (already achieved, maintain)
+- **60 FPS with 500+ shapes:** Maintain
+- **Support 10+ concurrent users:** Improve from 5+
+
+#### User Experience:
+- Shapes move in near real-time (feels instant)
+- Text editing appears immediately for all users
+- No more "laggy" feeling during collaboration
+- Smooth experience even with 10+ users
+- No data loss (Firestore backup)
+
+#### Success Criteria:
+✅ Measured latency <30ms for shape updates  
+✅ No regressions in data persistence  
+✅ 60 FPS maintained with active collaboration  
+✅ Works reliably with 10+ concurrent users  
+✅ Automatic recovery if RTDB connection drops  
+✅ Deployed to production with A/B testing
+
 Risk Mitigation
 Top Risks:
 
@@ -459,13 +543,3 @@ MVP Fails If:
 ❌ Performance below 30 FPS
 ❌ Critical bugs (crashes, data loss)
 ❌ Missing any hard requirements (cursors, presence, auth, shapes, sync)
-
-Next Steps (Post-MVP)
-After passing MVP checkpoint:
-
-Add more shape types (circle, text)
-Implement resize and rotate
-Add multi-select
-Build AI agent with function calling
-Add complex AI commands
-Submit final project

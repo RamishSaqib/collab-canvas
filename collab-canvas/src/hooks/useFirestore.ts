@@ -21,12 +21,20 @@ interface PendingUpdate {
 }
 
 const pendingUpdates = new Map<string, PendingUpdate>();
-const DEBOUNCE_MS = 300; // 300ms debounce for updates
+
+// Reduced debounce for better perceived performance
+// Note: In hybrid sync architecture (PR #12), active shape updates
+// go through Realtime Database with no debounce (~20ms latency)
+// This Firestore debounce only applies to final state persistence
+const DEBOUNCE_MS = 100; // Reduced from 300ms → 100ms for immediate improvement
 
 /**
  * Firestore persistence hook for canvas objects
  * Manages save, update, delete, and real-time sync operations
  * Includes debouncing for performance optimization
+ * 
+ * Performance: 100ms debounce provides good balance between
+ * responsiveness and write operation costs
  */
 export function useFirestore() {
   

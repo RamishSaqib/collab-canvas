@@ -8,6 +8,7 @@ interface CircleProps {
   isSelected: boolean;
   onSelect: () => void;
   onDragStart: () => void;
+  onDragMove?: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => void;
 }
 
@@ -15,7 +16,7 @@ interface CircleProps {
  * Memoized Circle component for optimal rendering performance
  * Only re-renders when shape data, selection state, or callbacks change
  */
-function Circle({ shape, isSelected, onSelect, onDragStart, onDragEnd }: CircleProps) {
+function Circle({ shape, isSelected, onSelect, onDragStart, onDragMove, onDragEnd }: CircleProps) {
   const handleDragStart = (e: Konva.KonvaEventObject<DragEvent>) => {
     // Prevent stage from being dragged
     e.cancelBubble = true;
@@ -25,6 +26,10 @@ function Circle({ shape, isSelected, onSelect, onDragStart, onDragEnd }: CircleP
   const handleDragMove = (e: Konva.KonvaEventObject<DragEvent>) => {
     // Prevent stage from being dragged
     e.cancelBubble = true;
+    // Call parent handler for RTDB updates
+    if (onDragMove) {
+      onDragMove(e);
+    }
   };
 
   const handleDragEnd = (e: Konva.KonvaEventObject<DragEvent>) => {
