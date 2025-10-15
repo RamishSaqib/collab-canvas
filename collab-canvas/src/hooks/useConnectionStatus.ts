@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ref, onValue, off } from 'firebase/database';
+import { ref, onValue } from 'firebase/database';
 import { rtdb } from '../lib/firebase';
 
 export type ConnectionStatus = 'online' | 'offline' | 'reconnecting';
