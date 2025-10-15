@@ -1,22 +1,30 @@
-import { memo } from 'react';
-import { Circle as KonvaCircle } from 'react-konva';
+import { memo, useState } from 'react';
+import { Circle as KonvaCircle, Group, Text as KonvaText } from 'react-konva';
 import type Konva from 'konva';
 import type { CanvasObject } from '../../lib/types';
+import type { ActiveShape } from '../../hooks/useRealtimeSync';
+import Tooltip from './Tooltip';
 
 interface CircleProps {
   shape: CanvasObject;
   isSelected: boolean;
+  isActive?: boolean;
+  activeBy?: ActiveShape;
   onSelect: () => void;
   onDragStart: () => void;
   onDragMove?: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => void;
+  userName?: string; // Name of user who last modified (for tooltip)
 }
 
 /**
  * Memoized Circle component for optimal rendering performance
  * Only re-renders when shape data, selection state, or callbacks change
  */
-function Circle({ shape, isSelected, onSelect, onDragStart, onDragMove, onDragEnd }: CircleProps) {
+function Circle({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, userName }: CircleProps) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+
   const handleDragStart = (e: Konva.KonvaEventObject<DragEvent>) => {
     // Prevent stage from being dragged
     e.cancelBubble = true;
@@ -49,36 +57,71 @@ function Circle({ shape, isSelected, onSelect, onDragStart, onDragMove, onDragEn
     onSelect();
   };
 
+  // Determine stroke color and style based on state
+  const getStrokeColor = () => {
+    if (isActive && activeBy) {
+      return activeBy.userColor; // Active editing by another user
+    }
+    if (isSelected) {
+      return '#667eea'; // Selected by current user
+    }
+    return undefined;
+  };
+
+  const getStrokeWidth = () => {
+    if (isActive && activeBy) {
+      return 4; // Thicker for active editing
+    }
+    if (isSelected) {
+      return 3;
+    }
+    return 0;
+  };
+
+  const radius = shape.radius || 50;
+
   return (
-    <KonvaCircle
-      name={`shape-${shape.id}`}
-      x={shape.x}
-      y={shape.y}
-      radius={shape.radius || 50}
-      fill={shape.fill}
-      draggable
-      listening={true}
-      perfectDrawEnabled={false}
-      hitStrokeWidth={0}
-      onMouseDown={handleMouseDown}
-      onClick={handleClick}
-      onTap={handleClick}
-      onDragStart={handleDragStart}
-      onDragMove={handleDragMove}
-      onDragEnd={handleDragEnd}
-      // Selection styling
-      stroke={isSelected ? '#667eea' : undefined}
-      strokeWidth={isSelected ? 3 : 0}
-      shadowColor={isSelected ? '#667eea' : 'black'}
-      shadowBlur={isSelected ? 10 : 5}
-      shadowOpacity={isSelected ? 0.6 : 0.3}
-      shadowOffset={{ x: 0, y: 2 }}
-      shadowForStrokeEnabled={false}
+    <Group>
+      <KonvaCircle
+        name={`shape-${shape.id}`}
+        x={shape.x}
+        y={shape.y}
+        radius={radius}
+        fill={shape.fill}
+        draggable
+        listening={true}
+        perfectDrawEnabled={false}
+        hitStrokeWidth={0}
+        onMouseDown={handleMouseDown}
+        onClick={handleClick}
+        onTap={handleClick}
+        onDragStart={handleDragStart}
+        onDragMove={handleDragMove}
+        onDragEnd={handleDragEnd}
+        // Dynamic styling based on state
+        stroke={getStrokeColor()}
+        strokeWidth={getStrokeWidth()}
+        dash={isActive && activeBy ? [10, 5] : undefined} // Dashed border for active
+        shadowColor={isSelected ? '#667eea' : 'black'}
+        shadowBlur={isSelected ? 10 : 5}
+        shadowOpacity={isSelected ? 0.6 : 0.3}
+        shadowOffset={{ x: 0, y: 2 }}
+        shadowForStrokeEnabled={false}
       // Interaction feedback
       onMouseEnter={(e) => {
         const container = e.target.getStage()?.container();
         if (container) {
           container.style.cursor = 'move';
+        }
+        setIsHovered(true);
+      }}
+      onMouseMove={(e) => {
+        const stage = e.target.getStage();
+        if (stage) {
+          const pointerPos = stage.getPointerPosition();
+          if (pointerPos) {
+            setTooltipPos({ x: pointerPos.x, y: pointerPos.y });
+          }
         }
       }}
       onMouseLeave={(e) => {
@@ -86,8 +129,41 @@ function Circle({ shape, isSelected, onSelect, onDragStart, onDragMove, onDragEn
         if (container) {
           container.style.cursor = 'default';
         }
+        setIsHovered(false);
       }}
-    />
+      />
+      
+    {/* Active editing label - show user name when being edited by others */}
+    {isActive && activeBy && (
+      <Group
+        x={shape.x}
+        y={shape.y - radius - 25}
+        listening={false}
+      >
+        <KonvaText
+          text={`✏️ ${activeBy.userName}`}
+          fontSize={12}
+          fill={activeBy.userColor}
+          fontStyle="bold"
+          padding={4}
+          shadowColor="rgba(0,0,0,0.3)"
+          shadowBlur={4}
+          shadowOffset={{ x: 0, y: 1 }}
+        />
+      </Group>
+    )}
+    
+    {/* Tooltip - show last edited by on hover */}
+    {userName && (
+      <Tooltip
+        x={tooltipPos.x}
+        y={tooltipPos.y}
+        userName={userName}
+        timestamp={shape.lastModifiedAt}
+        visible={isHovered && !isActive}
+      />
+    )}
+  </Group>
   );
 }
 
@@ -102,7 +178,8 @@ function arePropsEqual(prevProps: CircleProps, nextProps: CircleProps) {
     prevProps.shape.y === nextProps.shape.y &&
     prevProps.shape.radius === nextProps.shape.radius &&
     prevProps.shape.fill === nextProps.shape.fill &&
-    prevProps.isSelected === nextProps.isSelected
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isActive === nextProps.isActive
   );
 }
 

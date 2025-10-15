@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Stage, Layer } from 'react-konva';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Stage, Layer, Rect, Circle as KonvaCircle, RegularPolygon, Text as KonvaText } from 'react-konva';
 import type Konva from 'konva';
 import { clampZoom, calculateZoomPosition, getZoomPoint, fitStageToWindow, getRelativePointerPosition } from '../../utils/canvas';
 import { useCanvas } from '../../hooks/useCanvas';
 import { useCursors } from '../../hooks/useCursors';
+import { usePresence } from '../../hooks/usePresence';
 import { checkMemoryLeaks } from '../../utils/performance';
 import Shape from './Shape';
 import Cursor from './Cursor';
@@ -36,6 +37,7 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
   const [deleteToast, setDeleteToast] = useState(false);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [editingTextValue, setEditingTextValue] = useState('');
+  const [cursorPreviewPos, setCursorPreviewPos] = useState<{ x: number; y: number } | null>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const isPanningRef = useRef(false);
   const lastPanPositionRef = useRef({ x: 0, y: 0 });
@@ -60,6 +62,20 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     userColor: user.color,
   });
 
+  const { onlineUsers } = usePresence({
+    userId: user.id,
+    userName: user.name,
+    userColor: user.color,
+  });
+  
+  // Create a map of userId -> userName for tooltips
+  const userNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    onlineUsers.forEach(u => map.set(u.userId, u.userName));
+    map.set(user.id, user.name); // Include current user
+    return map;
+  }, [onlineUsers, user.id, user.name]);
+
   // Handle window resize
   useEffect(() => {
     const handleResize = () => {
@@ -69,6 +85,13 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Clear cursor preview when switching to select mode
+  useEffect(() => {
+    if (mode === 'select') {
+      setCursorPreviewPos(null);
+    }
+  }, [mode]);
 
   // Performance monitoring: Check for potential memory leaks
   useEffect(() => {
@@ -245,7 +268,28 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     // Get canvas-relative position (accounting for zoom/pan)
     const pos = getRelativePointerPosition(stage);
     broadcastCursor(pos.x, pos.y);
-  }, [broadcastCursor]);
+    
+    // Update cursor preview position for shape creation modes
+    if (mode !== 'select') {
+      setCursorPreviewPos(pos);
+    }
+  }, [broadcastCursor, mode]);
+
+  // Handle mouse enter to show cursor preview
+  const handleStageMouseEnter = useCallback(() => {
+    if (mode !== 'select') {
+      const stage = stageRef.current;
+      if (stage) {
+        const pos = getRelativePointerPosition(stage);
+        setCursorPreviewPos(pos);
+      }
+    }
+  }, [mode]);
+
+  // Handle mouse leave to hide cursor preview
+  const handleStageMouseLeave = useCallback(() => {
+    setCursorPreviewPos(null);
+  }, []);
 
   // Handle shape drag start - memoized
   const handleShapeDragStart = useCallback((shapeId: string) => () => {
@@ -363,6 +407,8 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
         onTap={handleStageClick}
         onMouseDown={handleStageMouseDown}
         onMouseMove={handleMouseMove}
+        onMouseEnter={handleStageMouseEnter}
+        onMouseLeave={handleStageMouseLeave}
       >
         <Layer listening={true}>
           {/* Render all shapes */}
@@ -370,6 +416,7 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
             // Memoize callbacks per shape to avoid recreating on every render
             const handleSelect = () => selectShape(shape.id);
             const isActive = activeShapes.has(shape.id);
+            const lastModifiedUserName = userNameMap.get(shape.lastModifiedBy);
             
             return (
               <Shape
@@ -383,6 +430,7 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
                 onDragMove={handleShapeDragMove(shape.id)}
                 onDragEnd={handleShapeDragEnd(shape.id)}
                 onTextDoubleClick={shape.type === 'text' ? handleTextDoubleClick(shape.id) : undefined}
+                userName={lastModifiedUserName}
               />
             );
           })}
@@ -395,6 +443,65 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
               stageScale={stageScale}
             />
           ))}
+          
+          {/* Cursor preview - show what shape will be created */}
+          {cursorPreviewPos && mode !== 'select' && (
+            <>
+              {mode === 'rectangle' && (
+                <Rect
+                  x={cursorPreviewPos.x - 75}
+                  y={cursorPreviewPos.y - 50}
+                  width={150}
+                  height={100}
+                  fill={selectedColor}
+                  opacity={0.3}
+                  stroke={selectedColor}
+                  strokeWidth={2}
+                  dash={[5, 5]}
+                  listening={false}
+                />
+              )}
+              {mode === 'circle' && (
+                <KonvaCircle
+                  x={cursorPreviewPos.x}
+                  y={cursorPreviewPos.y}
+                  radius={50}
+                  fill={selectedColor}
+                  opacity={0.3}
+                  stroke={selectedColor}
+                  strokeWidth={2}
+                  dash={[5, 5]}
+                  listening={false}
+                />
+              )}
+              {mode === 'triangle' && (
+                <RegularPolygon
+                  x={cursorPreviewPos.x}
+                  y={cursorPreviewPos.y}
+                  sides={3}
+                  radius={50}
+                  fill={selectedColor}
+                  opacity={0.3}
+                  stroke={selectedColor}
+                  strokeWidth={2}
+                  dash={[5, 5]}
+                  listening={false}
+                />
+              )}
+              {mode === 'text' && (
+                <KonvaText
+                  x={cursorPreviewPos.x - 30}
+                  y={cursorPreviewPos.y - 14}
+                  text="Text"
+                  fontSize={28}
+                  fill={selectedColor}
+                  opacity={0.5}
+                  fontFamily="Arial"
+                  listening={false}
+                />
+              )}
+            </>
+          )}
         </Layer>
       </Stage>
       

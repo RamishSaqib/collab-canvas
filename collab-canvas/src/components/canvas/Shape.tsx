@@ -1,11 +1,12 @@
-import { memo } from 'react';
-import { Rect } from 'react-konva';
+import { memo, useState } from 'react';
+import { Rect, Group, Text as KonvaText } from 'react-konva';
 import type Konva from 'konva';
 import type { CanvasObject } from '../../lib/types';
 import type { ActiveShape } from '../../hooks/useRealtimeSync';
 import Circle from './Circle';
 import Triangle from './Triangle';
 import Text from './Text';
+import Tooltip from './Tooltip';
 
 export interface ShapeProps {
   shape: CanvasObject;
@@ -18,6 +19,7 @@ export interface ShapeProps {
   onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onTextChange?: (newText: string) => void;
   onTextDoubleClick?: () => void;
+  userName?: string; // Name of user who last modified (for tooltip)
 }
 
 /**
@@ -28,17 +30,20 @@ export interface ShapeProps {
  * isActive indicates the shape is being edited by someone in real-time
  * activeBy contains info about who is editing (userId, userName, userColor)
  */
-function Shape({ shape, isSelected, isActive: _isActive, activeBy: _activeBy, onSelect, onDragStart, onDragMove, onDragEnd, onTextDoubleClick }: ShapeProps) {
+function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, onTextDoubleClick, userName }: ShapeProps) {
   // Render different components based on shape type
   if (shape.type === 'circle') {
     return (
       <Circle
         shape={shape}
         isSelected={isSelected}
+        isActive={isActive}
+        activeBy={activeBy}
         onSelect={onSelect}
         onDragStart={onDragStart}
         onDragMove={onDragMove}
         onDragEnd={onDragEnd}
+        userName={userName}
       />
     );
   }
@@ -48,10 +53,13 @@ function Shape({ shape, isSelected, isActive: _isActive, activeBy: _activeBy, on
       <Triangle
         shape={shape}
         isSelected={isSelected}
+        isActive={isActive}
+        activeBy={activeBy}
         onSelect={onSelect}
         onDragStart={onDragStart}
         onDragMove={onDragMove}
         onDragEnd={onDragEnd}
+        userName={userName}
       />
     );
   }
@@ -61,17 +69,23 @@ function Shape({ shape, isSelected, isActive: _isActive, activeBy: _activeBy, on
       <Text
         shape={shape}
         isSelected={isSelected}
+        isActive={isActive}
+        activeBy={activeBy}
         onSelect={onSelect}
         onDragStart={onDragStart}
         onDragMove={onDragMove}
         onDragEnd={onDragEnd}
         onDoubleClick={onTextDoubleClick}
+        userName={userName}
       />
     );
   }
 
   // Default to rectangle
   if (shape.type !== 'rectangle') return null;
+
+  const [isHovered, setIsHovered] = useState(false);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
   const handleDragStart = (e: Konva.KonvaEventObject<DragEvent>) => {
     // Prevent stage from being dragged
@@ -105,47 +119,116 @@ function Shape({ shape, isSelected, isActive: _isActive, activeBy: _activeBy, on
     onSelect();
   };
 
+  // Determine stroke color and style based on state
+  const getStrokeColor = () => {
+    if (isActive && activeBy) {
+      return activeBy.userColor; // Active editing by another user
+    }
+    if (isSelected) {
+      return '#667eea'; // Selected by current user
+    }
+    return undefined;
+  };
+
+  const getStrokeWidth = () => {
+    if (isActive && activeBy) {
+      return 4; // Thicker for active editing
+    }
+    if (isSelected) {
+      return 3;
+    }
+    return 0;
+  };
+
+  const width = shape.width || 150;
+  const height = shape.height || 100;
+
   return (
-    <Rect
-      name={`shape-${shape.id}`}
-      x={shape.x}
-      y={shape.y}
-      width={shape.width || 150}
-      height={shape.height || 100}
-      fill={shape.fill}
-      rotation={shape.rotation || 0}
-      draggable
-      listening={true}
-      perfectDrawEnabled={false}
-      hitStrokeWidth={0}
-      onMouseDown={handleMouseDown}
-      onClick={handleClick}
-      onTap={handleClick}
-      onDragStart={handleDragStart}
-      onDragMove={handleDragMove}
-      onDragEnd={handleDragEnd}
-      // Selection styling
-      stroke={isSelected ? '#667eea' : undefined}
-      strokeWidth={isSelected ? 3 : 0}
-      shadowColor={isSelected ? '#667eea' : 'black'}
-      shadowBlur={isSelected ? 10 : 5}
-      shadowOpacity={isSelected ? 0.6 : 0.3}
-      shadowOffset={{ x: 0, y: 2 }}
-      shadowForStrokeEnabled={false}
-      // Interaction feedback
-      onMouseEnter={(e) => {
-        const container = e.target.getStage()?.container();
-        if (container) {
-          container.style.cursor = 'move';
-        }
-      }}
-      onMouseLeave={(e) => {
-        const container = e.target.getStage()?.container();
-        if (container) {
-          container.style.cursor = 'default';
-        }
-      }}
-    />
+    <Group>
+      <Rect
+        name={`shape-${shape.id}`}
+        x={shape.x}
+        y={shape.y}
+        width={width}
+        height={height}
+        fill={shape.fill}
+        rotation={shape.rotation || 0}
+        draggable
+        listening={true}
+        perfectDrawEnabled={false}
+        hitStrokeWidth={0}
+        onMouseDown={handleMouseDown}
+        onClick={handleClick}
+        onTap={handleClick}
+        onDragStart={handleDragStart}
+        onDragMove={handleDragMove}
+        onDragEnd={handleDragEnd}
+        // Dynamic styling based on state
+        stroke={getStrokeColor()}
+        strokeWidth={getStrokeWidth()}
+        dash={isActive && activeBy ? [10, 5] : undefined} // Dashed border for active
+        shadowColor={isSelected ? '#667eea' : 'black'}
+        shadowBlur={isSelected ? 10 : 5}
+        shadowOpacity={isSelected ? 0.6 : 0.3}
+        shadowOffset={{ x: 0, y: 2 }}
+        shadowForStrokeEnabled={false}
+        // Interaction feedback
+        onMouseEnter={(e) => {
+          const container = e.target.getStage()?.container();
+          if (container) {
+            container.style.cursor = 'move';
+          }
+          setIsHovered(true);
+        }}
+        onMouseMove={(e) => {
+          const stage = e.target.getStage();
+          if (stage) {
+            const pointerPos = stage.getPointerPosition();
+            if (pointerPos) {
+              setTooltipPos({ x: pointerPos.x, y: pointerPos.y });
+            }
+          }
+        }}
+        onMouseLeave={(e) => {
+          const container = e.target.getStage()?.container();
+          if (container) {
+            container.style.cursor = 'default';
+          }
+          setIsHovered(false);
+        }}
+      />
+      
+      {/* Active editing label - show user name when being edited by others */}
+      {isActive && activeBy && (
+        <Group
+          x={shape.x}
+          y={shape.y - 25}
+          listening={false}
+        >
+          <KonvaText
+            text={`✏️ ${activeBy.userName}`}
+            fontSize={12}
+            fill={activeBy.userColor}
+            fontStyle="bold"
+            padding={4}
+            shadowColor="rgba(0,0,0,0.3)"
+            shadowBlur={4}
+            shadowOffset={{ x: 0, y: 1 }}
+          />
+        </Group>
+      )}
+      
+      {/* Tooltip - show last edited by on hover */}
+      {userName && (
+        <Tooltip
+          x={tooltipPos.x}
+          y={tooltipPos.y}
+          userName={userName}
+          timestamp={shape.lastModifiedAt}
+          visible={isHovered && !isActive}
+        />
+      )}
+    </Group>
   );
 }
 
