@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Stage, Layer, Rect, Circle as KonvaCircle, RegularPolygon, Text as KonvaText } from 'react-konva';
+import { Stage, Layer, Rect, Circle as KonvaCircle, RegularPolygon, Text as KonvaText, Transformer } from 'react-konva';
 import type Konva from 'konva';
 import { clampZoom, calculateZoomPosition, getZoomPoint, fitStageToWindow, getRelativePointerPosition } from '../../utils/canvas';
 import { useCanvas } from '../../hooks/useCanvas';
@@ -39,18 +39,26 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
   const [editingTextValue, setEditingTextValue] = useState('');
   const [cursorPreviewPos, setCursorPreviewPos] = useState<{ x: number; y: number } | null>(null);
   const stageRef = useRef<Konva.Stage>(null);
+  const transformerRef = useRef<Konva.Transformer>(null);
+  const shapeRefsMap = useRef<Map<string, Konva.Node>>(new Map());
   const isPanningRef = useRef(false);
   const lastPanPositionRef = useRef({ x: 0, y: 0 });
   const textInputRef = useRef<HTMLInputElement>(null);
   
   const {
     shapes,
-    selectedShapeId,
+    selectedShapeIds,
     activeShapes,
     createShape,
     updateShape,
+    updateShapes,
     deleteShape,
-    selectShape,
+    deleteShapes,
+    duplicateShapes,
+    selectShapes,
+    toggleShapeSelection,
+    clearSelection,
+    selectAll,
     updateActivePosition,
     markShapeActive,
     markShapeInactive,
@@ -102,6 +110,25 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     return () => clearInterval(interval);
   }, [shapes.length]);
 
+  // Attach Transformer to selected shapes
+  useEffect(() => {
+    const transformer = transformerRef.current;
+    if (!transformer) return;
+
+    // Get all selected shape nodes
+    const selectedNodes: Konva.Node[] = [];
+    selectedShapeIds.forEach(id => {
+      const node = shapeRefsMap.current.get(id);
+      if (node) {
+        selectedNodes.push(node);
+      }
+    });
+
+    // Attach transformer to selected nodes
+    transformer.nodes(selectedNodes);
+    transformer.getLayer()?.batchDraw();
+  }, [selectedShapeIds]);
+
   // Handle mouse move and up on document for panning
   useEffect(() => {
     const handleDocumentMouseMove = (e: MouseEvent) => {
@@ -136,54 +163,84 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't handle shortcuts if we're editing text
-      if (editingTextId) {
+      // Check if user is typing in an input/textarea (don't interfere with text editing)
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || editingTextId) {
         return;
       }
 
+      // Ctrl/Cmd key shortcuts
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'd' || e.key === 'D') {
+          // Ctrl+D: Duplicate selected shapes
+          e.preventDefault();
+          if (selectedShapeIds.length > 0) {
+            duplicateShapes(selectedShapeIds, user.id);
+            console.log('📋 Duplicated', selectedShapeIds.length, 'shape(s)');
+          }
+        } else if (e.key === 'a' || e.key === 'A') {
+          // Ctrl+A: Select all shapes
+          e.preventDefault();
+          selectAll();
+          console.log('✅ Selected all shapes');
+        } else if (e.key === ']') {
+          // Ctrl+]: Bring to front
+          e.preventDefault();
+          if (selectedShapeIds.length > 0) {
+            const maxZIndex = Math.max(...shapes.map(s => s.zIndex || 0));
+            updateShapes(selectedShapeIds, { zIndex: maxZIndex + 1 });
+            console.log('⬆️ Brought to front');
+          }
+        } else if (e.key === '[') {
+          // Ctrl+[: Send to back
+          e.preventDefault();
+          if (selectedShapeIds.length > 0) {
+            const minZIndex = Math.min(...shapes.map(s => s.zIndex || 0));
+            updateShapes(selectedShapeIds, { zIndex: minZIndex - 1 });
+            console.log('⬇️ Sent to back');
+          }
+        }
+        return; // Don't process other keys when Ctrl/Cmd is held
+      }
+
+      // Regular key shortcuts
       if (e.key === 'v' || e.key === 'V') {
         onModeChange('select');
-        // Remove focus from any focused button to clear outline
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
       } else if (e.key === 'r' || e.key === 'R') {
         onModeChange('rectangle');
-        // Remove focus from any focused button to clear outline
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
       } else if (e.key === 'c' || e.key === 'C') {
         onModeChange('circle');
-        // Remove focus from any focused button to clear outline
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
       } else if (e.key === 't' || e.key === 'T') {
         onModeChange('triangle');
-        // Remove focus from any focused button to clear outline
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
       } else if (e.key === 'a' || e.key === 'A') {
         onModeChange('text');
-        // Remove focus from any focused button to clear outline
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
       } else if (e.key === 'Escape') {
         onModeChange('select');
-        selectShape(null);
-        // Remove focus from any focused button to clear outline
+        clearSelection();
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        // Delete selected shape (only if not editing text)
-        if (selectedShapeId) {
+        // Delete selected shapes
+        if (selectedShapeIds.length > 0) {
           e.preventDefault(); // Prevent browser back navigation on Backspace
-          deleteShape(selectedShapeId);
-          console.log('🗑️ Shape deleted:', selectedShapeId);
+          deleteShapes(selectedShapeIds);
+          console.log('🗑️ Deleted', selectedShapeIds.length, 'shape(s)');
           
           // Show deletion feedback
           setDeleteToast(true);
@@ -198,7 +255,7 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onModeChange, selectShape, deleteShape, selectedShapeId, editingTextId]);
+  }, [onModeChange, clearSelection, deleteShapes, duplicateShapes, selectAll, updateShapes, selectedShapeIds, editingTextId, user.id, shapes]);
 
   // Handle zoom with mouse wheel (memoized)
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -240,10 +297,10 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
         }
       } else {
         // Deselect when clicking empty canvas in select mode
-        selectShape(null);
+        clearSelection();
       }
     }
-  }, [mode, createShape, selectShape, user.id, selectedColor]);
+  }, [mode, createShape, clearSelection, user.id, selectedColor]);
 
   // Manual panning: Handle mouse down on stage - memoized
   const handleStageMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -381,16 +438,59 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     };
   }, [editingTextId, shapes]);
 
-  // Apply selected color to currently selected shape
+  // Handle applying color to selected shapes
   const handleApplyColorToSelected = useCallback(() => {
-    if (selectedShapeId) {
-      updateShape(selectedShapeId, { 
-        fill: selectedColor,
-        lastModifiedBy: user.id 
-      });
+    if (selectedShapeIds.length > 0) {
+      updateShapes(selectedShapeIds, { fill: selectedColor, lastModifiedBy: user.id });
+      console.log('🎨 Applied color to', selectedShapeIds.length, 'shape(s)');
       onCloseColorPicker();
     }
-  }, [selectedShapeId, selectedColor, updateShape, user.id, onCloseColorPicker]);
+  }, [selectedShapeIds, selectedColor, updateShapes, user.id, onCloseColorPicker]);
+
+  // Handle transform end (resize/rotate)
+  const handleTransformEnd = useCallback((e: Konva.KonvaEventObject<Event>) => {
+    const node = e.target;
+    const shapeId = node.id();
+    
+    // Get the transformed properties
+    const scaleX = node.scaleX();
+    const scaleY = node.scaleY();
+    const rotation = node.rotation();
+    
+    // Calculate new width and height based on scale
+    const newWidth = Math.max(5, node.width() * scaleX);
+    const newHeight = Math.max(5, node.height() * scaleY);
+    
+    // Reset scale to 1 (we store the actual width/height instead)
+    node.scaleX(1);
+    node.scaleY(1);
+    
+    // Update shape in state with new dimensions and rotation
+    const shape = shapes.find(s => s.id === shapeId);
+    if (shape) {
+      const updates: Partial<typeof shape> = {
+        rotation: rotation,
+        lastModifiedBy: user.id,
+      };
+      
+      // Handle different shape types
+      if (shape.type === 'rectangle' || shape.type === 'triangle') {
+        updates.width = newWidth;
+        updates.height = newHeight;
+      } else if (shape.type === 'circle') {
+        // For circles, use average of width/height as radius
+        updates.radius = (newWidth + newHeight) / 4;
+      } else if (shape.type === 'text') {
+        // For text, scale the font size
+        const currentFontSize = shape.fontSize || 24;
+        const scaleFactor = (scaleX + scaleY) / 2;
+        updates.fontSize = Math.max(8, Math.round(currentFontSize * scaleFactor));
+      }
+      
+      updateShape(shapeId, updates);
+      console.log('🔧 Transformed shape:', shapeId, updates);
+    }
+  }, [shapes, updateShape, user.id]);
 
   return (
     <div className="canvas-container">
@@ -414,7 +514,16 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
           {/* Render all shapes */}
           {shapes.map(shape => {
             // Memoize callbacks per shape to avoid recreating on every render
-            const handleSelect = () => selectShape(shape.id);
+            const handleSelect = (e: any) => {
+              const isShiftHeld = e.evt?.shiftKey || false;
+              if (isShiftHeld) {
+                // Shift+Click: toggle selection
+                toggleShapeSelection(shape.id);
+              } else {
+                // Regular click: select only this shape
+                selectShapes([shape.id]);
+              }
+            };
             const isActive = activeShapes.has(shape.id);
             const lastModifiedUserName = userNameMap.get(shape.lastModifiedBy);
             
@@ -422,7 +531,7 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
               <Shape
                 key={shape.id}
                 shape={shape}
-                isSelected={shape.id === selectedShapeId}
+                isSelected={selectedShapeIds.includes(shape.id)}
                 isActive={isActive}
                 activeBy={isActive ? activeShapes.get(shape.id) : undefined}
                 onSelect={handleSelect}
@@ -431,9 +540,29 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
                 onDragEnd={handleShapeDragEnd(shape.id)}
                 onTextDoubleClick={shape.type === 'text' ? handleTextDoubleClick(shape.id) : undefined}
                 userName={lastModifiedUserName}
+                shapeRef={(node: Konva.Node | null) => {
+                  if (node) {
+                    shapeRefsMap.current.set(shape.id, node);
+                  } else {
+                    shapeRefsMap.current.delete(shape.id);
+                  }
+                }}
               />
             );
           })}
+          
+          {/* Transformer for resize and rotate */}
+          <Transformer
+            ref={transformerRef}
+            onTransformEnd={handleTransformEnd}
+            boundBoxFunc={(oldBox, newBox) => {
+              // Limit resize to minimum 5x5 pixels
+              if (newBox.width < 5 || newBox.height < 5) {
+                return oldBox;
+              }
+              return newBox;
+            }}
+          />
           
           {/* Render other users' cursors */}
           {otherCursors.map(cursor => (
@@ -615,8 +744,8 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
           selectedColor={selectedColor}
           onColorChange={onColorChange}
           onClose={onCloseColorPicker}
-          onApply={selectedShapeId ? handleApplyColorToSelected : undefined}
-          showApply={!!selectedShapeId}
+          onApply={selectedShapeIds.length > 0 ? handleApplyColorToSelected : undefined}
+          showApply={selectedShapeIds.length > 0}
         />
       )}
     </div>

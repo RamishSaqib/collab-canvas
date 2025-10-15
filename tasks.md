@@ -1320,10 +1320,42 @@ MVP is 100% complete! Ready for post-MVP enhancements (additional shape types, A
 
 ---
 
-## PR #14: Conflict Resolution & Persistence Enhancements
+## PR #14: Conflict Resolution & Persistence Enhancements ✅ COMPLETED
 **Goal:** Achieve EXCELLENT rating (8-9/9) for Conflict Resolution and Persistence categories
 
-### Status: IN PROGRESS
+### Status: COMPLETE
+**Date Completed:** October 15, 2025
+
+### Summary:
+Successfully implemented comprehensive conflict resolution and persistence enhancements. Added connection status monitoring, operation queue for offline support, and visual indicators for network state. The app now gracefully handles network disconnections and automatically syncs queued operations on reconnection.
+
+### What Was Built:
+- ✅ **ConnectionStatusBanner Component** - Real-time visual feedback for network state
+- ✅ **useConnectionStatus Hook** - Monitors Firebase RTDB and Firestore connection state
+- ✅ **useOperationQueue Hook** - Queue operations during disconnects with localStorage persistence
+- ✅ **useBeforeUnload Hook** - Cleanup and flush pending operations on page unload
+- ✅ **Operation Queue Integration** - Connected to Firestore operations for auto-retry
+- ✅ **Immediate Flush** - Critical operations (create/delete) bypass debounce
+- ✅ **Connection Monitoring** - Track online/offline/reconnecting states
+- ✅ **Auto-sync** - Queued operations automatically sync on reconnection
+
+### Key Files Created:
+- ✅ `src/components/ConnectionStatusBanner.tsx` & `.css`
+- ✅ `src/hooks/useConnectionStatus.ts`
+- ✅ `src/hooks/useOperationQueue.ts`
+- ✅ `src/hooks/useBeforeUnload.ts`
+
+### Files Modified:
+- ✅ `src/App.tsx`
+- ✅ `src/hooks/useCanvas.ts`
+- ✅ `src/hooks/useFirestore.ts`
+
+### Build Status:
+- ✅ TypeScript compilation successful
+- ✅ Production build successful (1.22MB bundle, 325.44KB gzipped)
+- ✅ Deployed to production: https://collab-canvas-d3589.web.app
+
+**PR Title:** `feat: add conflict resolution visual indicators and operation queue for offline sync`
 
 ### Tasks:
 
@@ -1548,4 +1580,239 @@ MVP is 100% complete! Ready for post-MVP enhancements (additional shape types, A
   - Post-deployment smoke testing
   - Monitor Firebase console for errors
 
-**PR Title:** `feat: add conflict resolution visual indicators and operation queue for offline sync`
+---
+
+## PR #15: Advanced Canvas Features - Transform Operations & Multi-Select
+**Goal:** Achieve EXCELLENT rating (7-8/8) for Canvas Functionality category
+
+### Status: IN PROGRESS
+
+### Tasks:
+
+#### 1. Add Shape Resize with Transform Handles
+- [x] Implement Konva Transformer for resize operations
+  - **Files:** `src/components/canvas/Canvas.tsx`, `src/hooks/useCanvas.ts`
+  - Add react-konva `Transformer` component
+  - Attach transformer to selected shape(s)
+  - Show 8 resize handles (corners + midpoints)
+  - Maintain aspect ratio with Shift key (optional)
+  - Update shape width/height in state on resize
+  - Sync resize to Firestore immediately
+  - Test with all shape types (rectangle, circle, triangle)
+  - Text shape resizing changes fontSize
+
+#### 2. Add Shape Rotation
+- [x] Implement rotation handle and operations
+  - **Files:** `src/components/canvas/Canvas.tsx`, `src/hooks/useCanvas.ts`
+  - Enable rotation handle on Transformer
+  - Track rotation angle in CanvasObject (add rotation property)
+  - Update rotation in state on rotate
+  - Sync rotation to Firestore
+  - Keyboard rotation: Ctrl+] rotate right 15°, Ctrl+[ rotate left 15°
+  - Show rotation angle tooltip during rotation
+  - Test rotation with all shape types
+
+#### 3. Implement Multi-Select (Shift+Click)
+- [x] Add ability to select multiple shapes
+  - **Files:** `src/hooks/useCanvas.ts`, `src/components/canvas/Canvas.tsx`
+  - Change selectedShape to selectedShapes (array)
+  - Shift+Click to add shape to selection
+  - Shift+Click selected shape to deselect it
+  - Click empty space to clear selection
+  - Visual: All selected shapes show blue highlight
+  - Attach Transformer to all selected shapes
+  - Move/resize/rotate works on all selected shapes
+
+#### 4. Implement Multi-Select (Drag Rectangle)
+- [ ] Add drag-to-select rectangle functionality
+  - **Files:** `src/components/canvas/Canvas.tsx`
+  - Press and drag on empty canvas to draw selection rectangle
+  - Show semi-transparent blue selection box during drag
+  - On mouse up, select all shapes intersecting the box
+  - Works in Select mode only
+  - Combine with Shift for additive selection
+  - Clear previous selection if Shift not held
+
+#### 5. Add Layer Management (Z-Index Control)
+- [x] Implement bring to front/back operations
+  - **Files:** `src/hooks/useCanvas.ts`, `src/components/canvas/Toolbar.tsx`
+  - Add zIndex property to CanvasObject (default: 0)
+  - Add toolbar buttons: "Bring to Front" and "Send to Back"
+  - Add keyboard shortcuts: Ctrl+] (front), Ctrl+[ (back)
+  - Bring to Front: set zIndex to max + 1
+  - Send to Back: set zIndex to min - 1
+  - Sort shapes by zIndex before rendering
+  - Sync zIndex changes to Firestore
+  - Multi-select: layer operations work on all selected
+
+#### 6. Add Duplicate Function
+- [x] Implement shape duplication (copy)
+  - **Files:** `src/hooks/useCanvas.ts`, `src/components/canvas/Toolbar.tsx`
+  - Add toolbar button: "Duplicate" or keyboard Ctrl+D
+  - Create new shape with same properties
+  - Offset position by (20, 20) pixels
+  - Generate new UUID for duplicated shape
+  - Save to Firestore immediately
+  - Select the new duplicated shape
+  - Multi-select: duplicate all selected shapes
+
+#### 7. Add Text Formatting Controls
+- [ ] Create text formatting toolbar
+  - **Files:** Create `src/components/canvas/TextFormatToolbar.tsx`, `.css`
+  - Show when text shape is selected
+  - Font size selector: dropdown with 12, 16, 20, 24, 32, 48, 64px
+  - Bold button (toggle fontStyle: 'bold')
+  - Italic button (toggle fontStyle: 'italic')
+  - Text align: left, center, right
+  - Position toolbar near selected text or fixed position
+  - Update text properties in state
+  - Sync to Firestore on change
+
+#### 8. Update CanvasObject Type with New Properties
+- [x] Extend type definitions for new features
+  - **Files:** `src/lib/types.ts`
+  - Add rotation?: number (default 0)
+  - Add zIndex?: number (default 0)
+  - Add fontSize?: number (default 24, for text)
+  - Add fontStyle?: 'normal' | 'bold' | 'italic' | 'bold italic'
+  - Add textAlign?: 'left' | 'center' | 'right'
+  - Ensure backwards compatibility with existing objects
+
+#### 9. Update Shape Components for Rotation/Resize
+- [ ] Apply rotation and dynamic sizing to all shapes
+  - **Files:** All shape components (Rectangle, Circle, Triangle, Text)
+  - Apply rotation prop to Konva components
+  - Use width/height from state (if resized)
+  - For Circle: use radius or calculate from width/height
+  - For Triangle: recalculate points based on width/height
+  - For Text: apply fontSize, fontStyle, textAlign
+  - Test visual correctness after transforms
+
+#### 10. Add Visual Feedback for Multi-Select
+- [ ] Enhance selection visual for multiple shapes
+  - **Files:** `src/components/canvas/Shape.tsx`, CSS files
+  - All selected shapes show blue stroke
+  - Selection count badge in toolbar: "3 selected"
+  - Bounding box around all selected shapes (optional)
+  - Transformer shows unified handles for group
+  - Clear visual distinction from single selection
+
+#### 11. Add Group Move for Multi-Select
+- [ ] Enable moving multiple shapes together
+  - **Files:** `src/components/canvas/Canvas.tsx`
+  - Drag any selected shape moves all selected shapes
+  - Maintain relative positions during move
+  - Update all shape positions in state
+  - Batch Firestore updates for performance
+  - Show preview positions during drag
+
+#### 12. Add Keyboard Shortcuts for New Features
+- [x] Implement keyboard shortcuts
+  - **Files:** `src/components/canvas/Canvas.tsx`
+  - **Ctrl+D**: Duplicate selected shape(s)
+  - **Ctrl+]**: Bring to front
+  - **Ctrl+[**: Send to back
+  - **Ctrl+A**: Select all shapes
+  - **Shift+Click**: Add to selection
+  - **Delete/Backspace**: Delete all selected shapes
+  - Update handleKeyDown function
+
+#### 13. Update Keyboard Shortcuts Modal
+- [ ] Document all new shortcuts
+  - **Files:** `src/components/canvas/KeyboardShortcutsModal.tsx`
+  - Add section for "Transform Operations"
+  - Add section for "Multi-Select"
+  - Add section for "Layer Management"
+  - List all new keyboard shortcuts
+  - Update modal layout/styling as needed
+
+#### 14. Implement Aspect Ratio Lock (Optional Enhancement)
+- [ ] Add aspect ratio lock for resize
+  - **Files:** `src/components/canvas/Canvas.tsx`
+  - Checkbox or button to toggle aspect ratio lock
+  - When locked, resize maintains original width:height ratio
+  - Apply to rectangle and image shapes
+  - Store aspectRatioLocked in shape state (optional)
+
+#### 15. Add Alignment Guides (Optional Enhancement)
+- [ ] Show alignment guides when moving shapes
+  - **Files:** Create `src/components/canvas/AlignmentGuides.tsx`
+  - Detect when shape aligns with other shapes
+  - Show dashed lines for center/edge alignment
+  - Snap to alignment (within 5px threshold)
+  - Works with single and multi-select
+  - Performance: only check visible shapes
+
+#### 16. Test Transform Operations
+- [ ] Comprehensive testing for all transforms
+  - Resize rectangle → verify width/height updated
+  - Resize circle → verify radius updated
+  - Resize triangle → verify points recalculated
+  - Resize text → verify fontSize updated
+  - Rotate all shape types → verify rotation applied
+  - Test combined transforms (resize + rotate)
+  - Verify Firestore sync for all operations
+
+#### 17. Test Multi-Select Scenarios
+- [ ] Test all multi-select use cases
+  - Shift+Click to select 5 shapes
+  - Drag selection rectangle over 10 shapes
+  - Move all selected shapes together
+  - Resize all selected shapes
+  - Rotate all selected shapes
+  - Duplicate 3 selected shapes
+  - Delete 5 selected shapes
+  - Verify sync across multiple users
+
+#### 18. Test Layer Management
+- [ ] Test z-index ordering
+  - Create 5 overlapping shapes
+  - Bring one to front → verify on top
+  - Send one to back → verify on bottom
+  - Verify rendering order matches zIndex
+  - Test with multi-select
+  - Verify persistence across refresh
+
+#### 19. Test Text Formatting
+- [ ] Test all text formatting options
+  - Change font size from 12px to 64px
+  - Toggle bold on/off
+  - Toggle italic on/off
+  - Change text alignment (left/center/right)
+  - Test combinations (bold + italic + 48px)
+  - Verify formatting syncs to other users
+  - Test with rotated/resized text
+
+#### 20. Performance Testing with Transforms
+- [ ] Verify no performance regression
+  - Create 100+ shapes with various transforms
+  - Resize/rotate multiple shapes simultaneously
+  - Multi-select 50+ shapes and move
+  - Monitor FPS (maintain 60)
+  - Check Firestore write counts
+  - Test with 5+ concurrent users
+  - Verify no memory leaks
+
+#### 21. Update Documentation
+- [ ] Document all new canvas features
+  - **Files:** `README.md`
+  - Add Transform Operations section
+  - Add Multi-Select section
+  - Add Layer Management section
+  - Add Text Formatting section
+  - Update keyboard shortcuts list
+  - Add screenshots/GIFs
+  - Update feature comparison
+
+#### 22. Build, Test, and Deploy
+- [ ] Production deployment with full testing
+  - Run full test suite
+  - Test all new features manually
+  - Build production bundle
+  - Test locally with `npm run preview`
+  - Deploy to Firebase Hosting
+  - Post-deployment verification
+  - Test with multiple real users
+  - Monitor Firebase console
+
+**PR Title:** `feat: add transform operations, multi-select, layer management, and text formatting`

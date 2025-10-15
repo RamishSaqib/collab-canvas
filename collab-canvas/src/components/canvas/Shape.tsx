@@ -13,13 +13,14 @@ export interface ShapeProps {
   isSelected: boolean;
   isActive?: boolean;
   activeBy?: ActiveShape;
-  onSelect: () => void;
+  onSelect: (e: any) => void;
   onDragStart: () => void;
   onDragMove?: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onTextChange?: (newText: string) => void;
   onTextDoubleClick?: () => void;
   userName?: string; // Name of user who last modified (for tooltip)
+  shapeRef?: (node: Konva.Node | null) => void; // Ref callback for Transformer
 }
 
 /**
@@ -30,7 +31,7 @@ export interface ShapeProps {
  * isActive indicates the shape is being edited by someone in real-time
  * activeBy contains info about who is editing (userId, userName, userColor)
  */
-function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, onTextDoubleClick, userName }: ShapeProps) {
+function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, onTextDoubleClick, userName, shapeRef }: ShapeProps) {
   // Render different components based on shape type
   if (shape.type === 'circle') {
     return (
@@ -44,6 +45,7 @@ function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, o
         onDragMove={onDragMove}
         onDragEnd={onDragEnd}
         userName={userName}
+        shapeRef={shapeRef}
       />
     );
   }
@@ -60,6 +62,7 @@ function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, o
         onDragMove={onDragMove}
         onDragEnd={onDragEnd}
         userName={userName}
+        shapeRef={shapeRef}
       />
     );
   }
@@ -77,6 +80,7 @@ function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, o
         onDragEnd={onDragEnd}
         onDoubleClick={onTextDoubleClick}
         userName={userName}
+        shapeRef={shapeRef}
       />
     );
   }
@@ -116,7 +120,7 @@ function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, o
   const handleClick = (e: Konva.KonvaEventObject<MouseEvent>) => {
     // Prevent stage click event
     e.cancelBubble = true;
-    onSelect();
+    onSelect(e);
   };
 
   // Determine stroke color and style based on state
@@ -146,7 +150,9 @@ function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, o
   return (
     <Group>
       <Rect
+        id={shape.id}
         name={`shape-${shape.id}`}
+        ref={shapeRef as any}
         x={shape.x}
         y={shape.y}
         width={width}

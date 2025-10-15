@@ -27,8 +27,11 @@ export interface CanvasObject {
   radius?: number;
   text?: string;
   fontSize?: number;
+  fontStyle?: 'normal' | 'bold' | 'italic' | 'bold italic';
+  textAlign?: 'left' | 'center' | 'right';
   fill: string;
   rotation?: number;
+  zIndex?: number;
   createdBy: string;
   lastModifiedBy: string;
   lastModifiedAt: number;

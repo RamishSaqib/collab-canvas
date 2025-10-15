@@ -7,12 +7,18 @@ import type { User } from '../lib/types';
 
 interface UseCanvasReturn {
   shapes: CanvasObject[];
-  selectedShapeId: string | null;
+  selectedShapeIds: string[];
   activeShapes: Map<string, ActiveShape>;
   createShape: (x: number, y: number, createdBy: string, type?: 'rectangle' | 'circle' | 'triangle' | 'text', color?: string) => CanvasObject;
   updateShape: (id: string, updates: Partial<CanvasObject>) => void;
+  updateShapes: (ids: string[], updates: Partial<CanvasObject>) => void;
   deleteShape: (id: string) => void;
-  selectShape: (id: string | null) => void;
+  deleteShapes: (ids: string[]) => void;
+  duplicateShapes: (ids: string[], createdBy: string) => CanvasObject[];
+  selectShapes: (ids: string[]) => void;
+  toggleShapeSelection: (id: string) => void;
+  clearSelection: () => void;
+  selectAll: () => void;
   getShape: (id: string) => CanvasObject | undefined;
   // RTDB operations
   updateActivePosition: (shapeId: string, x: number, y: number) => void;
@@ -28,7 +34,7 @@ interface UseCanvasProps {
 export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
   const [firestoreShapes, setFirestoreShapes] = useState<CanvasObject[]>([]);
   const [activeShapes, setActiveShapes] = useState<Map<string, ActiveShape>>(new Map());
-  const [selectedShapeId, setSelectedShapeId] = useState<string | null>(null);
+  const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([]);
   
   const { saveObject, updateObject, deleteObject, subscribeToObjects, flushAllUpdates } = useFirestore();
   const {
@@ -117,9 +123,9 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
   // This ensures no data is lost if user refreshes within the 100ms debounce window
   useBeforeUnload(flushAllUpdates);
 
-  // Merge Firestore shapes with RTDB active shapes
+  // Merge Firestore shapes with RTDB active shapes and sort by zIndex
   const shapes = React.useMemo(() => {
-    return firestoreShapes.map(shape => {
+    const mergedShapes = firestoreShapes.map(shape => {
       const activeShape = activeShapes.get(shape.id);
       
       // If shape is actively being edited by someone
@@ -135,6 +141,9 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
       
       return shape;
     });
+
+    // Sort by zIndex (lower zIndex renders first/behind)
+    return mergedShapes.sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
   }, [firestoreShapes, activeShapes]);
 
   // Create a new shape
@@ -146,6 +155,7 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
       y,
       fill: color || generateRandomColor(),
       rotation: 0,
+      zIndex: 0,
       createdBy,
       lastModifiedBy: createdBy,
       lastModifiedAt: Date.now(),
@@ -175,6 +185,8 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
           ...baseShape,
           text: 'Text',
           fontSize: 24,
+          fontStyle: 'normal',
+          textAlign: 'left',
         } as CanvasObject;
         break;
       
@@ -231,15 +243,30 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
     });
   }, [updateObject]);
 
+  // Update multiple shapes at once
+  const updateShapes = useCallback((ids: string[], updates: Partial<CanvasObject>) => {
+    // Optimistic update
+    setFirestoreShapes(prev => prev.map(shape => 
+      ids.includes(shape.id)
+        ? { ...shape, ...updates, lastModifiedAt: Date.now() }
+        : shape
+    ));
+
+    // Save all to Firestore
+    Promise.all(
+      ids.map(id => updateObject(id, updates))
+    ).catch((error) => {
+      console.error('Failed to update shapes in Firestore:', error);
+    });
+  }, [updateObject]);
+
   // Delete a shape
   const deleteShape = useCallback((id: string) => {
     // Optimistic update - remove from Firestore shapes immediately
     setFirestoreShapes(prev => prev.filter(shape => shape.id !== id));
     
     // Deselect if it was selected
-    if (selectedShapeId === id) {
-      setSelectedShapeId(null);
-    }
+    setSelectedShapeIds(prev => prev.filter(selectedId => selectedId !== id));
     
     // Remove from locally created tracking
     locallyCreatedRef.current.delete(id);
@@ -252,12 +279,94 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
       console.error('Failed to delete shape from Firestore:', error);
       // Note: Could restore shape here if needed
     });
-  }, [selectedShapeId, deleteObject, markShapeInactive]);
+  }, [deleteObject, markShapeInactive]);
 
-  // Select a shape
-  const selectShape = useCallback((id: string | null) => {
-    setSelectedShapeId(id);
+  // Delete multiple shapes
+  const deleteShapes = useCallback((ids: string[]) => {
+    // Optimistic update - remove all from Firestore shapes
+    setFirestoreShapes(prev => prev.filter(shape => !ids.includes(shape.id)));
+    
+    // Deselect all deleted shapes
+    setSelectedShapeIds(prev => prev.filter(selectedId => !ids.includes(selectedId)));
+    
+    // Remove from locally created tracking and mark inactive
+    ids.forEach(id => {
+      locallyCreatedRef.current.delete(id);
+      markShapeInactive(id);
+    });
+    
+    // Delete from Firestore in background
+    Promise.all(
+      ids.map(id => deleteObject(id))
+    ).catch((error) => {
+      console.error('Failed to delete shapes from Firestore:', error);
+    });
+  }, [deleteObject, markShapeInactive]);
+
+  // Duplicate shapes
+  const duplicateShapes = useCallback((ids: string[], createdBy: string): CanvasObject[] => {
+    const shapesToDuplicate = firestoreShapes.filter(shape => ids.includes(shape.id));
+    const duplicated: CanvasObject[] = [];
+
+    shapesToDuplicate.forEach(original => {
+      const newShape: CanvasObject = {
+        ...original,
+        id: crypto.randomUUID(),
+        x: original.x + 20,
+        y: original.y + 20,
+        createdBy,
+        lastModifiedBy: createdBy,
+        lastModifiedAt: Date.now(),
+      };
+
+      // Mark as locally created
+      locallyCreatedRef.current.add(newShape.id);
+      duplicated.push(newShape);
+
+      // Save to Firestore
+      saveObject(newShape).catch((error) => {
+        console.error('Failed to save duplicated shape:', error);
+        setFirestoreShapes(prev => prev.filter(s => s.id !== newShape.id));
+        locallyCreatedRef.current.delete(newShape.id);
+      });
+    });
+
+    // Optimistic update
+    setFirestoreShapes(prev => [...prev, ...duplicated]);
+    
+    // Select the duplicated shapes
+    setSelectedShapeIds(duplicated.map(s => s.id));
+
+    return duplicated;
+  }, [firestoreShapes, saveObject]);
+
+  // Select specific shapes
+  const selectShapes = useCallback((ids: string[]) => {
+    setSelectedShapeIds(ids);
   }, []);
+
+  // Toggle shape selection (for Shift+Click)
+  const toggleShapeSelection = useCallback((id: string) => {
+    setSelectedShapeIds(prev => {
+      if (prev.includes(id)) {
+        // Deselect
+        return prev.filter(selectedId => selectedId !== id);
+      } else {
+        // Add to selection
+        return [...prev, id];
+      }
+    });
+  }, []);
+
+  // Clear all selections
+  const clearSelection = useCallback(() => {
+    setSelectedShapeIds([]);
+  }, []);
+
+  // Select all shapes
+  const selectAll = useCallback(() => {
+    setSelectedShapeIds(firestoreShapes.map(shape => shape.id));
+  }, [firestoreShapes]);
 
   // Get a specific shape
   const getShape = useCallback((id: string): CanvasObject | undefined => {
@@ -266,12 +375,18 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
 
   return {
     shapes,
-    selectedShapeId,
+    selectedShapeIds,
     activeShapes,
     createShape,
     updateShape,
+    updateShapes,
     deleteShape,
-    selectShape,
+    deleteShapes,
+    duplicateShapes,
+    selectShapes,
+    toggleShapeSelection,
+    clearSelection,
+    selectAll,
     getShape,
     // RTDB operations for hybrid sync
     updateActivePosition,
