@@ -511,6 +511,199 @@ canvases/main-canvas/objects/{shapeId}
 ✅ Automatic recovery if RTDB connection drops  
 ✅ Deployed to production with A/B testing
 
+---
+
+### PR #13: Color Customization System 🎨
+**Status:** Planning  
+**Goal:** Add comprehensive color control for shapes and text with intuitive UI
+
+#### Problem Statement:
+Currently, shapes are created with random colors from a preset palette with no way to:
+- Choose a specific color before creating a shape
+- Change the color of an existing shape after creation
+- Control text color independently
+- Preview colors before applying them
+
+Users need the ability to customize colors to create more organized and visually meaningful canvases.
+
+#### Solution: Interactive Color System
+
+**Color Picker Component:**
+- Circular color wheel for intuitive color selection
+- Real-time preview of selected color
+- Persistent color choice across shape creations
+- Positioned in toolbar for easy access
+
+**Color Modes:**
+1. **Pre-Creation Mode:** Select color before creating shapes
+2. **Post-Creation Mode:** Select shape → change its color
+3. **Text Color Mode:** Change text fill color (not background)
+4. **Select Mode Independence:** Color selection doesn't interfere with select mode
+
+#### Features to Implement:
+
+**1. Color Picker UI:**
+- ✅ Circular color wheel with full spectrum
+- ✅ Color preview indicator showing current selection
+- ✅ Default color (user can reset to random colors)
+- ✅ Visual feedback when color is applied
+- ✅ Positioned in toolbar between tool buttons and help
+
+**2. Pre-Creation Color Selection:**
+- ✅ User selects color from wheel
+- ✅ Next shape created uses selected color
+- ✅ Color persists across multiple shape creations
+- ✅ Works for all shape types (rectangle, circle, triangle, text)
+- ✅ Visual indicator in toolbar shows active color
+
+**3. Post-Creation Color Change:**
+- ✅ User selects shape (enters select mode automatically)
+- ✅ Opens color picker or uses existing picker
+- ✅ Changes color of selected shape in real-time
+- ✅ Syncs color change to all collaborators via Firestore
+- ✅ Supports undo/redo (future enhancement)
+
+**4. Text-Specific Color:**
+- ✅ Text color changes the fill property (text color)
+- ✅ Text remains readable against canvas background
+- ✅ Color preview shows text in selected color
+
+**5. Mode Independence:**
+- ✅ Selecting a color does NOT change current mode
+- ✅ User can select color while in rectangle/circle/triangle/text mode
+- ✅ User can select color while in select mode
+- ✅ Tool mode and color selection are independent states
+
+#### Technical Implementation:
+
+**New Components:**
+```typescript
+// ColorPicker.tsx - Main color picker component
+interface ColorPickerProps {
+  selectedColor: string;
+  onColorChange: (color: string) => void;
+  onApplyToSelected?: () => void;
+}
+
+// ColorWheel.tsx - Interactive color wheel
+interface ColorWheelProps {
+  selectedColor: string;
+  onColorSelect: (color: string) => void;
+  size?: number;
+}
+```
+
+**State Management:**
+```typescript
+// Canvas.tsx additions
+const [selectedColor, setSelectedColor] = useState<string>('#667eea'); // Default purple
+const [showColorPicker, setShowColorPicker] = useState<boolean>(false);
+
+// Update shape with new color
+const updateShapeColor = (shapeId: string, color: string) => {
+  updateShape(shapeId, { fill: color, lastModifiedBy: user.id });
+};
+```
+
+**Data Flow:**
+1. User picks color → `setSelectedColor(newColor)`
+2. User creates shape → `createShape(x, y, user.id, type, selectedColor)`
+3. User selects shape + picks color → `updateShapeColor(shapeId, newColor)`
+4. Firestore sync → All users see color change
+
+#### Color Wheel Implementation Options:
+
+**Option A: Custom Canvas-Based Wheel**
+- Use HTML Canvas to draw HSL color wheel
+- High customization, full control
+- ~200 lines of code
+
+**Option B: react-color Library**
+- Popular React color picker library
+- `<CirclePicker />` or `<ChromePicker />` components
+- Quick implementation, well-tested
+- Additional dependency (~50KB)
+
+**Recommendation:** Start with custom implementation for learning, fall back to react-color if time-constrained.
+
+#### UI/UX Design:
+
+**Toolbar Layout:**
+```
+[Pan] [Rectangle] [Circle] [Triangle] [Text] [🎨 Color] [Select] [?]
+                                              ↓
+                                      [Color Picker Popover]
+                                      ┌─────────────────┐
+                                      │   Color Wheel   │
+                                      │        ●        │
+                                      │    Selected:    │
+                                      │   [Preview Box] │
+                                      │   [Apply/Close] │
+                                      └─────────────────┘
+```
+
+**Color Indicator:**
+- Small color swatch next to color picker icon
+- Shows currently selected color
+- Pulsing animation when changed
+
+**Selected Shape Feedback:**
+- When shape is selected, show its current color
+- Color picker pre-selects the shape's color
+- "Apply" button becomes enabled
+
+#### Keyboard Shortcuts:
+- `C` - Toggle color picker (when not editing text)
+- `Esc` - Close color picker
+- `Enter` - Apply color to selected shape
+
+#### User Experience:
+
+**Creating Colored Shapes:**
+1. User clicks color picker icon
+2. Wheel appears, user drags to select color
+3. Preview updates in real-time
+4. User clicks "Close" or anywhere outside
+5. User clicks Rectangle tool
+6. Clicks canvas → Rectangle created in selected color
+
+**Changing Shape Color:**
+1. User clicks Select tool (or presses `V`)
+2. Clicks a shape to select it
+3. Clicks color picker icon
+4. Color wheel shows shape's current color pre-selected
+5. User selects new color
+6. Clicks "Apply" → Shape color updates instantly
+7. All collaborators see the change
+
+**Text Color:**
+1. Same as above, but color affects text fill
+2. Text remains readable (consider adding stroke for contrast)
+
+#### Performance Considerations:
+- Color picker renders as overlay (not in Konva Layer)
+- Color changes use optimistic updates
+- Firestore updates debounced at 100ms
+- Color wheel uses cached gradients
+- No performance impact on canvas rendering
+
+#### Edge Cases:
+- **Multiple selected shapes:** Apply color to all selected (future: multi-select)
+- **During drag:** Color picker disabled while dragging
+- **During text edit:** Color picker disabled while editing text
+- **Disconnected:** Color changes queue and sync when reconnected
+
+#### Success Criteria:
+✅ Color picker UI is intuitive and responsive  
+✅ Colors persist across shape creations  
+✅ Selected shapes can have colors changed  
+✅ Text color changes only affect text fill  
+✅ Color selection doesn't interfere with tool modes  
+✅ Real-time color sync across all users  
+✅ No performance regression  
+✅ Works on mobile (touch-friendly color wheel)  
+✅ Deployed to production
+
 Risk Mitigation
 Top Risks:
 

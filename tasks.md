@@ -1104,3 +1104,207 @@ MVP is 100% complete! Ready for post-MVP enhancements (additional shape types, A
   - Compare before/after latency in production
 
 **PR Title:** `perf: implement hybrid RTDB/Firestore sync for 90% latency reduction`
+
+---
+
+## PR #13: Color Customization System
+**Goal:** Add comprehensive color control for shapes and text with intuitive color picker UI
+
+### Tasks:
+
+#### 1. Create Color Wheel Component
+- [ ] Build custom HSL color wheel component
+  - **Files:** `src/components/canvas/ColorWheel.tsx`, `ColorWheel.css`
+  - Draw circular color gradient using HTML5 Canvas
+  - Implement hue ring (outer circle) with full spectrum
+  - Add saturation/lightness square in center
+  - Handle mouse/touch events for color selection
+  - Calculate HSL → Hex conversion
+  - Show current selection indicator (dot)
+  - Make it responsive (mobile-friendly)
+  - Performance: Use cached canvas gradient
+
+#### 2. Create Color Picker Component
+- [ ] Build color picker UI with preview and controls
+  - **Files:** `src/components/canvas/ColorPicker.tsx`, `ColorPicker.css`
+  - Import and integrate ColorWheel component
+  - Add color preview box showing selected color
+  - Add hex color input field (optional)
+  - Add "Apply" button (for selected shapes)
+  - Add "Close" button
+  - Add "Reset to Random" option
+  - Position as popover/modal overlay
+  - Add smooth open/close animations
+  - Click outside to close
+
+#### 3. Add Color Picker to Toolbar
+- [ ] Integrate color picker into toolbar UI
+  - **Files:** `src/components/canvas/Toolbar.tsx`, `Toolbar.css`
+  - Add color picker button between Text and Select tools
+  - Add color swatch indicator showing current color
+  - Icon: 🎨 or color palette SVG
+  - Active state styling
+  - Tooltip: "Color (C)"
+  - Position button appropriately in layout
+
+#### 4. Add Color State to Canvas
+- [ ] Manage selected color state in Canvas component
+  - **Files:** `src/components/canvas/Canvas.tsx`
+  - Add `selectedColor` state (default: '#667eea')
+  - Add `showColorPicker` state (default: false)
+  - Add `toggleColorPicker()` handler
+  - Add `handleColorChange(color: string)` handler
+  - Add `applyColorToSelected()` handler
+  - Persist selectedColor between shape creations
+
+#### 5. Update createShape to Accept Color
+- [ ] Pass selected color when creating shapes
+  - **Files:** `src/hooks/useCanvas.ts`
+  - Add optional `color` parameter to `createShape()`
+  - Use provided color instead of `generateRandomColor()`
+  - If no color provided, fall back to random
+  - Update all createShape calls in Canvas.tsx
+
+#### 6. Pre-Creation Color Selection
+- [ ] Allow color selection before creating shapes
+  - **Files:** `src/components/canvas/Canvas.tsx`
+  - When user selects color, store in state
+  - On shape creation, use selectedColor
+  - Color persists across multiple creations
+  - Works for all shape types
+  - Visual feedback in toolbar swatch
+
+#### 7. Post-Creation Color Change
+- [ ] Allow changing color of existing shapes
+  - **Files:** `src/components/canvas/Canvas.tsx`
+  - When shape is selected + color picker opened:
+    - Pre-populate picker with shape's current color
+    - Enable "Apply" button
+  - On Apply: call `updateShape(id, { fill: newColor })`
+  - Optimistic update + Firestore sync
+  - All collaborators see change instantly
+
+#### 8. Color Picker Keyboard Shortcuts
+- [ ] Add keyboard shortcuts for color picker
+  - **Files:** `src/components/canvas/Canvas.tsx`
+  - `C` key: Toggle color picker (not during text edit)
+  - `Escape`: Close color picker
+  - `Enter`: Apply color to selected shape (if any)
+  - Update handleKeyDown function
+  - Add to KeyboardShortcutsModal
+
+#### 9. Update KeyboardShortcutsModal
+- [ ] Add new shortcuts to help modal
+  - **Files:** `src/components/canvas/KeyboardShortcutsModal.tsx`
+  - Add: "C - Color picker"
+  - Add: "Enter - Apply color to selected shape"
+  - Add: "Esc - Close color picker"
+  - Group under "Tools" category
+
+#### 10. Mode Independence
+- [ ] Ensure color selection doesn't change tool mode
+  - **Files:** `src/components/canvas/Canvas.tsx`
+  - Opening color picker keeps current mode
+  - Can select color while in any tool mode
+  - Can select color while in select mode
+  - Color state is independent from mode state
+  - Test all mode + color combinations
+
+#### 11. Text Color Specific Handling
+- [ ] Ensure text color changes text fill, not background
+  - **Files:** `src/components/canvas/Text.tsx`
+  - Verify `fill` property changes text color
+  - No background color for text shapes
+  - Test text readability with various colors
+  - Consider adding text stroke for contrast (optional)
+
+#### 12. Color Picker UI/UX Polish
+- [ ] Refine color picker appearance and interactions
+  - **Files:** `ColorPicker.css`, `ColorWheel.css`
+  - Smooth animations (fade in/out)
+  - Drop shadow and border styling
+  - Hover states for buttons
+  - Focus states for accessibility
+  - Mobile touch improvements
+  - Preview box pulsing animation when color changes
+  - Consistent spacing and alignment
+
+#### 13. Color Swatch Indicator in Toolbar
+- [ ] Add visual indicator showing current color
+  - **Files:** `src/components/canvas/Toolbar.tsx`, `Toolbar.css`
+  - Small colored circle/square next to color picker button
+  - Updates in real-time when color changes
+  - Subtle pulse animation on color change
+  - Tooltip shows hex value on hover
+  - Position: overlay on color button or adjacent
+
+#### 14. Edge Case Handling
+- [ ] Handle edge cases and special scenarios
+  - **Files:** Various component files
+  - Disable color picker during shape drag
+  - Disable color picker during text editing
+  - Handle no shape selected + Apply clicked (no-op)
+  - Color picker closes when switching tools (optional)
+  - Verify color syncs in Firestore correctly
+  - Test with slow network conditions
+
+#### 15. Performance Testing
+- [ ] Verify no performance regression
+  - Test color picker rendering performance
+  - Test color changes with 100+ shapes
+  - Test with multiple users changing colors
+  - Verify Firestore updates are debounced
+  - Check for memory leaks in color wheel
+  - Profile with React DevTools
+  - Maintain 60 FPS during interactions
+
+#### 16. Accessibility
+- [ ] Ensure color picker is accessible
+  - **Files:** `ColorPicker.tsx`, `ColorWheel.tsx`
+  - Add ARIA labels
+  - Keyboard navigation support
+  - Focus management (trap focus in picker)
+  - Screen reader announcements
+  - Color contrast for picker UI elements
+  - Tab order makes sense
+
+#### 17. Multi-User Testing
+- [ ] Test color changes with multiple users
+  - Open 3+ browser windows
+  - User A changes shape color
+  - User B sees change instantly
+  - User C changes same shape's color
+  - Verify last-write-wins behavior
+  - Test simultaneous color changes
+  - Check console for sync errors
+
+#### 18. Mobile/Touch Testing
+- [ ] Ensure color picker works on mobile
+  - Test color wheel touch interactions
+  - Test on actual mobile device or emulator
+  - Verify color picker size on small screens
+  - Test touch-drag on color wheel
+  - Ensure buttons are touch-friendly (44px min)
+  - Test in portrait and landscape
+
+#### 19. Update Documentation
+- [ ] Document color customization feature
+  - **Files:** `README.md`, `PERFORMANCE.md` (if needed)
+  - Add screenshots of color picker
+  - Document keyboard shortcuts
+  - Add color customization to features list
+  - Update user guide section
+  - Document technical implementation
+
+#### 20. Build, Test, and Deploy
+- [ ] Production deployment with full testing
+  - Run full test suite
+  - Test all color picker scenarios
+  - Build production bundle
+  - Test locally with `npm run preview`
+  - Deploy to Firebase
+  - Test live production site
+  - Verify color changes work in production
+  - Monitor Firebase console for errors
+
+**PR Title:** `feat: add color customization system with interactive color picker`
