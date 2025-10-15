@@ -77,9 +77,12 @@ export default function Toolbar({ user, onSignOut, mode, onModeChange, selectedC
             title="Color Picker (P)" 
             onClick={onToggleColorPicker}
           >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="10" cy="10" r="7" />
-              <path d="M10 6 L10 10 L13 10" strokeLinecap="round" />
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M10 2C8 2 6 3 5 5C4 7 4 9 5 11L8 14C8.5 14.5 9 15 9.5 15C10 15 10.5 14.5 11 14C11.5 13.5 11.5 13 11 12.5L9 10.5C8.5 10 8 9 8 8C8 6.5 9 5.5 10 5.5C11 5.5 12 6.5 12 8C12 8.5 12 9 11.5 9.5L13.5 11.5C14 11 14.5 10 14.5 9C14.5 7.5 15 7 16 7C16.5 7 17 7.5 17 8C17 8.5 16.5 9 16 9C15.5 9 15.5 9.5 15.5 10C15.5 12 14.5 14 12.5 15.5C11 17 9 17.5 7 17C5 16.5 3.5 15 2.5 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="7" cy="7" r="1.5" fill="#FF6B6B"/>
+              <circle cx="13" cy="7" r="1.5" fill="#4ECDC4"/>
+              <circle cx="10" cy="10" r="1.5" fill="#FFE66D"/>
+              <circle cx="7" cy="13" r="1.5" fill="#95E1D3"/>
             </svg>
             <div 
               className="color-swatch"
