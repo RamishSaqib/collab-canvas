@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import type { CanvasObject } from '../lib/types';
 import { useFirestore } from './useFirestore';
 import { useRealtimeSync, type ActiveShape } from './useRealtimeSync';
+import { useBeforeUnload } from './useBeforeUnload';
 import type { User } from '../lib/types';
 
 interface UseCanvasReturn {
@@ -111,6 +112,10 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subscribeToActiveShapes, isRTDBAvailable]);
+
+  // Flush pending updates before page unload/refresh
+  // This ensures no data is lost if user refreshes within the 100ms debounce window
+  useBeforeUnload(flushAllUpdates);
 
   // Merge Firestore shapes with RTDB active shapes
   const shapes = React.useMemo(() => {

@@ -5,6 +5,7 @@ import AuthWrapper from './components/auth/AuthWrapper'
 import Canvas, { type CanvasMode } from './components/canvas/Canvas'
 import Toolbar from './components/canvas/Toolbar'
 import Sidebar from './components/canvas/Sidebar'
+import ConnectionStatusBanner from './components/ConnectionStatusBanner'
 import type { User } from './lib/types'
 
 function App() {
@@ -57,6 +58,7 @@ function App() {
             showColorPicker={showColorPicker}
             onToggleColorPicker={toggleColorPicker}
           />
+          <ConnectionStatusBanner />
           <div className="main-content">
             <div className="canvas-wrapper">
               <Canvas 

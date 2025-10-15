@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { 
   collection, 
   doc, 
@@ -10,6 +11,8 @@ import {
 import type { Unsubscribe } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { CanvasObject } from '../lib/types';
+import { useOperationQueue, type QueuedOperation } from './useOperationQueue';
+import { useConnectionStatus } from './useConnectionStatus';
 
 const CANVAS_ID = 'main-canvas'; // Single shared canvas for MVP
 
@@ -37,6 +40,8 @@ const DEBOUNCE_MS = 100; // Reduced from 300ms → 100ms for immediate improveme
  * responsiveness and write operation costs
  */
 export function useFirestore() {
+  const { isOnline } = useConnectionStatus();
+  const { queueOperation, processQueue } = useOperationQueue();
   
   /**
    * Get reference to objects collection for the main canvas
@@ -59,15 +64,46 @@ export function useFirestore() {
   };
 
   /**
+   * Execute a queued operation
+   */
+  const executeQueuedOperation = async (op: QueuedOperation): Promise<void> => {
+    switch (op.type) {
+      case 'create':
+        const objectRef = getObjectDoc(op.objectId);
+        await setDoc(objectRef, op.payload as CanvasObject);
+        break;
+      case 'update':
+        const updateRef = getObjectDoc(op.objectId);
+        await updateDoc(updateRef, { ...op.payload, lastModifiedAt: Date.now() });
+        break;
+      case 'delete':
+        const deleteRef = getObjectDoc(op.objectId);
+        await deleteDoc(deleteRef);
+        break;
+    }
+  };
+
+  /**
    * Save a new object to Firestore
+   * Queues operation if offline
    */
   const saveObject = async (object: CanvasObject): Promise<void> => {
+    // Temporarily disabled offline check - always try to save
+    // TODO: Re-enable after fixing connection detection
+    // if (!isOnline) {
+    //   queueOperation('create', object.id, object);
+    //   console.log('📦 Queued create operation (offline):', object.id);
+    //   return;
+    // }
+
     try {
       const objectRef = getObjectDoc(object.id);
       await setDoc(objectRef, object);
-      console.log('Object saved to Firestore:', object.id);
+      console.log('✅ Object saved to Firestore:', object.id);
     } catch (error) {
-      console.error('Error saving object to Firestore:', error);
+      console.error('❌ Error saving object to Firestore:', error);
+      // Queue on failure
+      queueOperation('create', object.id, object);
       throw error;
     }
   };
@@ -150,21 +186,32 @@ export function useFirestore() {
 
   /**
    * Delete an object from Firestore
+   * Queues operation if offline
    */
   const deleteObject = async (objectId: string): Promise<void> => {
-    try {
-      // Cancel any pending updates for this object
-      const pending = pendingUpdates.get(objectId);
-      if (pending) {
-        clearTimeout(pending.timeoutId);
-        pendingUpdates.delete(objectId);
-      }
+    // Cancel any pending updates for this object
+    const pending = pendingUpdates.get(objectId);
+    if (pending) {
+      clearTimeout(pending.timeoutId);
+      pendingUpdates.delete(objectId);
+    }
 
+    // Temporarily disabled offline check - always try to delete
+    // TODO: Re-enable after fixing connection detection
+    // if (!isOnline) {
+    //   queueOperation('delete', objectId, {});
+    //   console.log('📦 Queued delete operation (offline):', objectId);
+    //   return;
+    // }
+
+    try {
       const objectRef = getObjectDoc(objectId);
       await deleteDoc(objectRef);
-      console.log('Object deleted from Firestore:', objectId);
+      console.log('✅ Object deleted from Firestore:', objectId);
     } catch (error) {
-      console.error('Error deleting object from Firestore:', error);
+      console.error('❌ Error deleting object from Firestore:', error);
+      // Queue on failure
+      queueOperation('delete', objectId, {});
       throw error;
     }
   };
@@ -199,6 +246,16 @@ export function useFirestore() {
 
     return unsubscribe;
   };
+
+  // Process queued operations when connection is restored
+  useEffect(() => {
+    if (isOnline) {
+      console.log('🌐 Connection restored, processing queued operations...');
+      processQueue(executeQueuedOperation).catch(error => {
+        console.error('Failed to process operation queue:', error);
+      });
+    }
+  }, [isOnline, processQueue]);
 
   return {
     saveObject,
