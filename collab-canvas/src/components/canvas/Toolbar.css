@@ -92,30 +92,19 @@
 }
 
 .tool-button.color-button {
-  position: relative;
-  overflow: visible;
-}
-
-.color-swatch {
-  position: absolute;
-  bottom: -4px;
-  right: -4px;
-  width: 16px;
-  height: 16px;
   border-radius: 50%;
-  border: 2px solid white;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-  animation: colorSwatchPulse 0.3s ease;
-  pointer-events: none;
+  border: 3px solid #e2e8f0;
+  transition: all 0.2s;
 }
 
-@keyframes colorSwatchPulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.2);
-  }
+.tool-button.color-button:hover {
+  border-color: #667eea;
+  transform: scale(1.1);
+}
+
+.tool-button.color-button.active {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
 }
 
 .tool-hint {
