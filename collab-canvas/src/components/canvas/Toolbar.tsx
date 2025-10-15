@@ -41,6 +41,33 @@ export default function Toolbar({ user, onSignOut, mode, onModeChange }: Toolbar
               <rect x="4" y="4" width="12" height="12" />
             </svg>
           </button>
+          <button 
+            className={`tool-button ${mode === 'circle' ? 'active' : ''}`}
+            title="Circle Tool (C)" 
+            onClick={() => handleToolClick('circle')}
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="10" cy="10" r="6" />
+            </svg>
+          </button>
+          <button 
+            className={`tool-button ${mode === 'triangle' ? 'active' : ''}`}
+            title="Triangle Tool (T)" 
+            onClick={() => handleToolClick('triangle')}
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M10 4 L16 16 L4 16 Z" />
+            </svg>
+          </button>
+          <button 
+            className={`tool-button ${mode === 'text' ? 'active' : ''}`}
+            title="Text Tool (A)" 
+            onClick={() => handleToolClick('text')}
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M6 4h8v2h-3v10h-2V6H6V4z" />
+            </svg>
+          </button>
         </div>
       </div>
 

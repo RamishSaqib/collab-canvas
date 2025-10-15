@@ -16,16 +16,21 @@ const shortcuts: Shortcut[] = [
   // Tools
   { keys: ['V'], description: 'Select tool', category: 'Tools' },
   { keys: ['R'], description: 'Rectangle tool', category: 'Tools' },
+  { keys: ['C'], description: 'Circle tool', category: 'Tools' },
+  { keys: ['T'], description: 'Triangle tool', category: 'Tools' },
+  { keys: ['A'], description: 'Text tool', category: 'Tools' },
   { keys: ['ESC'], description: 'Deselect & return to select mode', category: 'Tools' },
   
   // Actions
   { keys: ['Delete'], description: 'Delete selected shape', category: 'Actions' },
   { keys: ['Backspace'], description: 'Delete selected shape', category: 'Actions' },
+  { keys: ['Double-Click Text'], description: 'Edit text content', category: 'Actions' },
   
   // Navigation
   { keys: ['Mouse Wheel'], description: 'Zoom in/out', category: 'Navigation' },
   { keys: ['Drag Empty Space'], description: 'Pan canvas (select mode)', category: 'Navigation' },
   { keys: ['Click'], description: 'Select shape or create shape', category: 'Navigation' },
+  { keys: ['Drag Shape'], description: 'Move shape', category: 'Navigation' },
   
   // Help
   { keys: ['?'], description: 'Show keyboard shortcuts', category: 'Help' },

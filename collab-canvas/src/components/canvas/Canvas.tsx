@@ -10,7 +10,7 @@ import Cursor from './Cursor';
 import KeyboardShortcutsModal from './KeyboardShortcutsModal';
 import './Canvas.css';
 
-export type CanvasMode = 'select' | 'rectangle';
+export type CanvasMode = 'select' | 'rectangle' | 'circle' | 'triangle' | 'text';
 
 interface CanvasProps {
   user: {
@@ -29,9 +29,12 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [deleteToast, setDeleteToast] = useState(false);
+  const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [editingTextValue, setEditingTextValue] = useState('');
   const stageRef = useRef<Konva.Stage>(null);
   const isPanningRef = useRef(false);
   const lastPanPositionRef = useRef({ x: 0, y: 0 });
+  const textInputRef = useRef<HTMLInputElement>(null);
   
   const {
     shapes,
@@ -101,6 +104,11 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't handle shortcuts if we're editing text
+      if (editingTextId) {
+        return;
+      }
+
       if (e.key === 'v' || e.key === 'V') {
         onModeChange('select');
         // Remove focus from any focused button to clear outline
@@ -113,6 +121,24 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
+      } else if (e.key === 'c' || e.key === 'C') {
+        onModeChange('circle');
+        // Remove focus from any focused button to clear outline
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      } else if (e.key === 't' || e.key === 'T') {
+        onModeChange('triangle');
+        // Remove focus from any focused button to clear outline
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      } else if (e.key === 'a' || e.key === 'A') {
+        onModeChange('text');
+        // Remove focus from any focused button to clear outline
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
       } else if (e.key === 'Escape') {
         onModeChange('select');
         selectShape(null);
@@ -121,7 +147,7 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
           document.activeElement.blur();
         }
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
-        // Delete selected shape
+        // Delete selected shape (only if not editing text)
         if (selectedShapeId) {
           e.preventDefault(); // Prevent browser back navigation on Backspace
           deleteShape(selectedShapeId);
@@ -140,7 +166,7 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onModeChange, selectShape, deleteShape, selectedShapeId]);
+  }, [onModeChange, selectShape, deleteShape, selectedShapeId, editingTextId]);
 
   // Handle zoom with mouse wheel (memoized)
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -173,12 +199,12 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
   const handleStageClick = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
     // If clicking on the stage itself (not a shape)
     if (e.target === e.target.getStage()) {
-      if (mode === 'rectangle') {
-        // Create shape at click position
+      if (mode === 'rectangle' || mode === 'circle' || mode === 'triangle' || mode === 'text') {
+        // Create shape at click position based on current mode
         const stage = stageRef.current;
         if (stage) {
           const pos = getRelativePointerPosition(stage);
-          createShape(pos.x, pos.y, user.id);
+          createShape(pos.x, pos.y, user.id, mode);
         }
       } else {
         // Deselect when clicking empty canvas in select mode
@@ -226,6 +252,61 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
     });
   }, [updateShape, user.id]);
 
+  // Handle text double-click to start editing - memoized
+  const handleTextDoubleClick = useCallback((shapeId: string) => () => {
+    const shape = shapes.find(s => s.id === shapeId);
+    if (shape && shape.type === 'text') {
+      setEditingTextId(shapeId);
+      setEditingTextValue(shape.text || 'Text');
+    }
+  }, [shapes]);
+
+  // Focus text input when editing starts
+  useEffect(() => {
+    if (editingTextId && textInputRef.current) {
+      textInputRef.current.focus();
+      textInputRef.current.select();
+    }
+  }, [editingTextId]);
+
+  // Handle text edit submit
+  const handleTextEditSubmit = useCallback(() => {
+    if (editingTextId && editingTextValue.trim()) {
+      updateShape(editingTextId, {
+        text: editingTextValue.trim(),
+        lastModifiedBy: user.id,
+      });
+    }
+    setEditingTextId(null);
+    setEditingTextValue('');
+  }, [editingTextId, editingTextValue, updateShape, user.id]);
+
+  // Handle text edit key events
+  const handleTextEditKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleTextEditSubmit();
+    } else if (e.key === 'Escape') {
+      setEditingTextId(null);
+      setEditingTextValue('');
+    }
+  }, [handleTextEditSubmit]);
+
+  // Calculate position for text input overlay
+  const getTextInputPosition = useCallback(() => {
+    if (!editingTextId || !stageRef.current) return { left: 0, top: 0 };
+    
+    const shape = shapes.find(s => s.id === editingTextId);
+    if (!shape) return { left: 0, top: 0 };
+
+    const transform = stageRef.current.getAbsoluteTransform().copy();
+    const pos = transform.point({ x: shape.x, y: shape.y });
+
+    return {
+      left: pos.x,
+      top: pos.y,
+    };
+  }, [editingTextId, shapes]);
+
   return (
     <div className="canvas-container">
       <Stage
@@ -256,6 +337,7 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
                 onSelect={handleSelect}
                 onDragStart={handleShapeDragStart}
                 onDragEnd={handleShapeDragEnd(shape.id)}
+                onTextDoubleClick={shape.type === 'text' ? handleTextDoubleClick(shape.id) : undefined}
               />
             );
           })}
@@ -275,7 +357,13 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
       <div className="canvas-info">
         <div className="info-item">
           <span className="info-label">Mode:</span>
-          <span className="info-value">{mode === 'select' ? 'Select (V)' : 'Rectangle (R)'}</span>
+          <span className="info-value">
+            {mode === 'select' && 'Select (V)'}
+            {mode === 'rectangle' && 'Rectangle (R)'}
+            {mode === 'circle' && 'Circle (C)'}
+            {mode === 'triangle' && 'Triangle (T)'}
+            {mode === 'text' && 'Text (A)'}
+          </span>
         </div>
         <div className="info-item">
           <span className="info-label">Shapes:</span>
@@ -293,7 +381,7 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
           <div className="empty-state-icon">🎨</div>
           <h2 className="empty-state-title">Start Creating!</h2>
           <p className="empty-state-message">
-            Press <kbd>R</kbd> to create rectangles, or press <kbd>?</kbd> to see all shortcuts.
+            Press <kbd>R</kbd> for rectangles, <kbd>C</kbd> for circles, <kbd>T</kbd> for triangles, <kbd>A</kbd> for text, or <kbd>?</kbd> to see all shortcuts.
           </p>
         </div>
       )}
@@ -302,6 +390,21 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
       {mode === 'rectangle' && (
         <div className="mode-instruction">
           Click anywhere on canvas to create a rectangle. Press V or ESC to exit.
+        </div>
+      )}
+      {mode === 'circle' && (
+        <div className="mode-instruction">
+          Click anywhere on canvas to create a circle. Press V or ESC to exit.
+        </div>
+      )}
+      {mode === 'triangle' && (
+        <div className="mode-instruction">
+          Click anywhere on canvas to create a triangle. Press V or ESC to exit.
+        </div>
+      )}
+      {mode === 'text' && (
+        <div className="mode-instruction">
+          Click anywhere on canvas to create text. Double-click text to edit. Press V or ESC to exit.
         </div>
       )}
 
@@ -327,6 +430,31 @@ export default function Canvas({ user, mode, onModeChange }: CanvasProps) {
           <span className="toast-icon">🗑️</span>
           <span className="toast-text">Shape deleted</span>
         </div>
+      )}
+
+      {/* Text editing input (rendered outside Konva Stage) */}
+      {editingTextId && (
+        <input
+          ref={textInputRef}
+          type="text"
+          value={editingTextValue}
+          onChange={(e) => setEditingTextValue(e.target.value)}
+          onBlur={handleTextEditSubmit}
+          onKeyDown={handleTextEditKeyDown}
+          style={{
+            position: 'absolute',
+            left: `${getTextInputPosition().left}px`,
+            top: `${getTextInputPosition().top}px`,
+            fontSize: `${shapes.find(s => s.id === editingTextId)?.fontSize || 24}px`,
+            fontFamily: 'Arial',
+            border: '2px solid #667eea',
+            padding: '2px 4px',
+            outline: 'none',
+            backgroundColor: 'white',
+            zIndex: 1000,
+            minWidth: '100px',
+          }}
+        />
       )}
     </div>
   );

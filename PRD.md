@@ -353,7 +353,7 @@ Verify:
 
 Out of Scope for MVP (Do NOT Implement)
 
-Multiple shape types (stick to one for MVP)
+~~Multiple shape types (stick to one for MVP)~~ - **MOVED TO POST-MVP FINAL BUILD**
 Shape rotation
 Shape resize
 Multi-select
@@ -367,6 +367,65 @@ Chat or comments
 Export functionality
 
 Focus: Nail the core designer experience and multiplayer sync. Everything else is secondary.
+
+---
+
+## Post-MVP Features - Final Build
+
+### PR #11: Additional Shape Types ✨
+**Status:** Planned for Final Build  
+**Goal:** Expand canvas capabilities with multiple shape types beyond rectangles
+
+#### Features to Implement:
+
+**Circle Tool**
+- Press **C** to activate circle mode
+- Click to create circular shapes
+- Default radius: 50px
+- Same interaction model as rectangles (select, drag, delete)
+- Real-time sync across all users
+
+**Triangle Tool**
+- Press **T** to activate triangle mode  
+- Click to create triangular shapes
+- Default size: 100x100px
+- Same interaction model as other shapes
+- Real-time sync across all users
+
+**Text Tool**
+- Press **A** to activate text mode (Add text)
+- Click to create text boxes
+- Double-click to edit text content
+- Default text: "Text" or "Double-click to edit"
+- Default font size: 24px
+- Same interaction model as other shapes
+- Real-time sync including text content
+
+#### Technical Implementation:
+- New components: `Circle.tsx`, `Triangle.tsx`, `Text.tsx` in `src/components/canvas/`
+- Extended `CanvasObject` type union: `'rectangle' | 'circle' | 'triangle' | 'text'`
+- Updated `Shape.tsx` with conditional rendering for all types
+- Extended `useCanvas.ts` hook with type-specific creation logic
+- New toolbar buttons with keyboard shortcuts (C, T, A)
+- Updated keyboard shortcuts modal with new commands
+- Full multiplayer sync support (create, move, edit, delete)
+- Performance maintained at 60 FPS with 200+ mixed shapes
+
+#### User Experience:
+- Seamless switching between tools using keyboard shortcuts
+- Consistent visual feedback (selection, hover, drag) across all shape types
+- Text editing with intuitive double-click interaction
+- All shapes appear instantly for collaborators
+- Unified design language across shape types
+
+#### Success Criteria:
+✅ All three new shape types fully functional  
+✅ Real-time sync works for all shape types  
+✅ Performance maintained (60 FPS with 200+ shapes)  
+✅ Keyboard shortcuts documented and functional  
+✅ Text editing works smoothly  
+✅ No regressions in existing rectangle functionality  
+✅ Deployed to production with full testing
 
 Risk Mitigation
 Top Risks:

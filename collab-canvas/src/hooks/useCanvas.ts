@@ -5,7 +5,7 @@ import { useFirestore } from './useFirestore';
 interface UseCanvasReturn {
   shapes: CanvasObject[];
   selectedShapeId: string | null;
-  createShape: (x: number, y: number, createdBy: string) => CanvasObject;
+  createShape: (x: number, y: number, createdBy: string, type?: 'rectangle' | 'circle' | 'triangle' | 'text') => CanvasObject;
   updateShape: (id: string, updates: Partial<CanvasObject>) => void;
   deleteShape: (id: string) => void;
   selectShape: (id: string | null) => void;
@@ -61,14 +61,12 @@ export function useCanvas(): UseCanvasReturn {
   }, []); // Only run once on mount
 
   // Create a new shape
-  const createShape = useCallback((x: number, y: number, createdBy: string): CanvasObject => {
-    const newShape: CanvasObject = {
+  const createShape = useCallback((x: number, y: number, createdBy: string, type: 'rectangle' | 'circle' | 'triangle' | 'text' = 'rectangle'): CanvasObject => {
+    const baseShape = {
       id: crypto.randomUUID(),
-      type: 'rectangle',
+      type,
       x,
       y,
-      width: 150,
-      height: 100,
       fill: generateRandomColor(),
       rotation: 0,
       createdBy,
@@ -76,7 +74,44 @@ export function useCanvas(): UseCanvasReturn {
       lastModifiedAt: Date.now(),
     };
 
-    console.log('Creating new shape:', newShape.id);
+    let newShape: CanvasObject;
+
+    // Set type-specific properties
+    switch (type) {
+      case 'circle':
+        newShape = {
+          ...baseShape,
+          radius: 50,
+        } as CanvasObject;
+        break;
+      
+      case 'triangle':
+        newShape = {
+          ...baseShape,
+          width: 100,
+          height: 100,
+        } as CanvasObject;
+        break;
+      
+      case 'text':
+        newShape = {
+          ...baseShape,
+          text: 'Text',
+          fontSize: 24,
+        } as CanvasObject;
+        break;
+      
+      case 'rectangle':
+      default:
+        newShape = {
+          ...baseShape,
+          width: 150,
+          height: 100,
+        } as CanvasObject;
+        break;
+    }
+
+    console.log('Creating new shape:', newShape.id, 'type:', type);
 
     // Mark as locally created to avoid duplicate processing
     locallyCreatedRef.current.add(newShape.id);

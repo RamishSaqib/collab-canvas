@@ -19,13 +19,14 @@ export interface CursorPosition {
 // Canvas Object (Shape)
 export interface CanvasObject {
   id: string;
-  type: 'rectangle' | 'circle' | 'text';
+  type: 'rectangle' | 'circle' | 'triangle' | 'text';
   x: number;
   y: number;
   width?: number;
   height?: number;
   radius?: number;
   text?: string;
+  fontSize?: number;
   fill: string;
   rotation?: number;
   createdBy: string;

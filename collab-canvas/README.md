@@ -11,7 +11,11 @@ Open the app in multiple browser windows to experience real-time collaboration!
 ## 🎯 MVP Features
 
 - **Canvas Workspace**: Pan and zoom functionality with 60 FPS performance
-- **Shape Support**: Create and manipulate shapes (rectangles)
+- **Shape Support**: Create and manipulate multiple shape types
+  - Rectangles
+  - Circles  
+  - Triangles
+  - Text boxes (editable)
 - **Real-Time Collaboration**: 
   - Multiplayer cursors with name labels (<50ms sync)
   - Presence awareness (see who's online)
@@ -225,23 +229,46 @@ Using "Last Write Wins" approach:
 - Clear Vite cache: `rm -rf node_modules/.vite`
 - Verify Node.js version: `node --version`
 
-## 📝 Known Limitations (MVP)
+## ⌨️ Keyboard Shortcuts
 
-- Single shape type (rectangle)
+### Tools
+- **V** - Select mode
+- **R** - Rectangle tool
+- **C** - Circle tool
+- **T** - Triangle tool
+- **A** - Text tool
+- **ESC** - Deselect & return to select mode
+
+### Actions
+- **Delete / Backspace** - Delete selected shape
+- **Double-click text** - Edit text content
+
+### Navigation
+- **Mouse Wheel** - Zoom in/out
+- **Drag empty space** - Pan canvas (select mode only)
+- **Drag shape** - Move shape
+
+### Help
+- **?** - Show keyboard shortcuts modal
+
+## 📝 Known Limitations
+
 - No shape rotation or resize
 - No undo/redo
 - No multi-select
 - Basic conflict resolution (last write wins)
+- No shape styling controls (colors are random)
 
 ## 🚀 Future Enhancements
 
-- Multiple shape types (circle, text, line)
 - Shape transformation (rotate, resize)
 - Advanced selection (multi-select, lasso)
+- Color picker and styling controls
 - Undo/redo functionality
+- More shape types (lines, arrows, polygons)
 - AI agent with function calling
 - Comments and chat
-- Export functionality
+- Export functionality (PNG, SVG, JSON)
 
 ## 📄 License
 
