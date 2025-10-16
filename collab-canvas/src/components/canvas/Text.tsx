@@ -84,10 +84,10 @@ function Text({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, on
 
   const getStrokeWidth = () => {
     if (isActive && activeBy) {
-      return 3; // Thicker for active editing
+      return 3; // Thicker for active editing by others
     }
     if (isSelected) {
-      return 3; // Make selection more prominent
+      return 1.5; // Thinner for less visual distraction (50% of original)
     }
     return 0;
   };

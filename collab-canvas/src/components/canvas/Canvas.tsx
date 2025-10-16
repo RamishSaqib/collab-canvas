@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Stage, Layer, Rect, Circle as KonvaCircle, RegularPolygon, Text as KonvaText, Transformer } from 'react-konva';
 import type Konva from 'konva';
 import { clampZoom, calculateZoomPosition, getZoomPoint, fitStageToWindow, getRelativePointerPosition } from '../../utils/canvas';
+import { konvaToGrid, getCenterPoint } from '../../utils/coordinates';
 import { useCanvas } from '../../hooks/useCanvas';
 import { useCursors } from '../../hooks/useCursors';
 import { usePresence } from '../../hooks/usePresence';
@@ -225,23 +226,23 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     const handleDocumentMouseMove = (e: MouseEvent) => {
       // Handle panning
       if (isPanningRef.current) {
-        const dx = e.clientX - lastPanPositionRef.current.x;
-        const dy = e.clientY - lastPanPositionRef.current.y;
+      const dx = e.clientX - lastPanPositionRef.current.x;
+      const dy = e.clientY - lastPanPositionRef.current.y;
 
         // If mouse moved more than 3 pixels, consider it a pan (not just a click)
         if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
           didPanRef.current = true;
         }
 
-        setStagePosition(prev => ({
-          x: prev.x + dx,
-          y: prev.y + dy,
-        }));
+      setStagePosition(prev => ({
+        x: prev.x + dx,
+        y: prev.y + dy,
+      }));
 
-        lastPanPositionRef.current = {
-          x: e.clientX,
-          y: e.clientY,
-        };
+      lastPanPositionRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+      };
       }
 
       // Handle selection box drawing
@@ -257,7 +258,7 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     const handleDocumentMouseUp = () => {
       // Handle pan cleanup
       if (isPanningRef.current) {
-        isPanningRef.current = false;
+      isPanningRef.current = false;
         // Reset didPan after a brief delay (after click event fires)
         setTimeout(() => {
           didPanRef.current = false;
@@ -1006,6 +1007,31 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     }
   }, [shapes, updateShape, user.id]);
 
+  // Calculate grid coordinates for selected shapes
+  const gridCoordinates = useMemo(() => {
+    if (selectedShapeIds.length === 0) {
+      return { x: 0, y: 0, visible: false };
+    }
+
+    // Get positions of all selected shapes
+    const selectedShapes = shapes.filter(s => selectedShapeIds.includes(s.id));
+    const positions = selectedShapes.map(s => ({ x: s.x, y: s.y }));
+
+    // Get center point if multiple shapes selected
+    const centerPoint = positions.length === 1 
+      ? positions[0] 
+      : getCenterPoint(positions);
+
+    // Convert to grid coordinates
+    const gridCoords = konvaToGrid(centerPoint.x, centerPoint.y);
+
+    return {
+      x: gridCoords.x,
+      y: gridCoords.y,
+      visible: true,
+    };
+  }, [selectedShapeIds, shapes]);
+
   return (
     <div className={`canvas-container ${mode === 'hand' ? 'hand-mode' : ''}`}>
       <Stage
@@ -1218,6 +1244,12 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
           <span className="info-label">Zoom:</span>
           <span className="info-value">{Math.round(stageScale * 100)}%</span>
         </div>
+        {gridCoordinates.visible && (
+          <div className="info-item">
+            <span className="info-label">Position:</span>
+            <span className="info-value">({gridCoordinates.x}, {gridCoordinates.y})</span>
+          </div>
+        )}
       </div>
 
       {/* Multi-select counter */}
@@ -1316,29 +1348,29 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
         const isItalic = fontStyle === 'italic' || fontStyle === 'bold italic';
         
         return (
-          <input
-            ref={textInputRef}
-            type="text"
-            value={editingTextValue}
-            onChange={(e) => setEditingTextValue(e.target.value)}
-            onBlur={handleTextEditSubmit}
-            onKeyDown={handleTextEditKeyDown}
-            style={{
-              position: 'absolute',
-              left: `${getTextInputPosition().left}px`,
-              top: `${getTextInputPosition().top}px`,
+        <input
+          ref={textInputRef}
+          type="text"
+          value={editingTextValue}
+          onChange={(e) => setEditingTextValue(e.target.value)}
+          onBlur={handleTextEditSubmit}
+          onKeyDown={handleTextEditKeyDown}
+          style={{
+            position: 'absolute',
+            left: `${getTextInputPosition().left}px`,
+            top: `${getTextInputPosition().top}px`,
               fontSize: `${editingShape?.fontSize || 24}px`,
-              fontFamily: 'Arial',
+            fontFamily: 'Arial',
               fontWeight: isBold ? 'bold' : 'normal',
               fontStyle: isItalic ? 'italic' : 'normal',
-              border: '2px solid #667eea',
-              padding: '2px 4px',
-              outline: 'none',
-              backgroundColor: 'white',
-              zIndex: 1000,
-              minWidth: '100px',
-            }}
-          />
+            border: '2px solid #667eea',
+            padding: '2px 4px',
+            outline: 'none',
+            backgroundColor: 'white',
+            zIndex: 1000,
+            minWidth: '100px',
+          }}
+        />
         );
       })()}
 
