@@ -16,6 +16,8 @@ interface CircleProps {
   onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => void;
   userName?: string; // Name of user who last modified (for tooltip)
   userColor?: string; // Current user's color for selection highlight
+  isDraggable?: boolean; // Whether shape can be dragged
+  isListening?: boolean; // Whether shape responds to events
   shapeRef?: (node: Konva.Node | null) => void;
 }
 
@@ -23,7 +25,7 @@ interface CircleProps {
  * Memoized Circle component for optimal rendering performance
  * Only re-renders when shape data, selection state, or callbacks change
  */
-function Circle({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, userName, userColor, shapeRef }: CircleProps) {
+function Circle({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, userName, userColor, isDraggable = true, isListening = true, shapeRef }: CircleProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
@@ -93,8 +95,8 @@ function Circle({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, 
         radius={radius}
         fill={shape.fill}
         rotation={shape.rotation || 0}
-        draggable
-        listening={true}
+        draggable={isDraggable}
+        listening={isListening}
         perfectDrawEnabled={false}
         hitStrokeWidth={0}
         onMouseDown={handleMouseDown}

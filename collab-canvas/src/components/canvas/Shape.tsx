@@ -21,6 +21,8 @@ export interface ShapeProps {
   onTextDoubleClick?: () => void;
   userName?: string; // Name of user who last modified (for tooltip)
   userColor?: string; // Current user's color for selection highlight
+  isDraggable?: boolean; // Whether shape can be dragged (false in hand mode)
+  isListening?: boolean; // Whether shape responds to events (false in hand mode)
   shapeRef?: (node: Konva.Node | null) => void; // Ref callback for Transformer
 }
 
@@ -32,7 +34,7 @@ export interface ShapeProps {
  * isActive indicates the shape is being edited by someone in real-time
  * activeBy contains info about who is editing (userId, userName, userColor)
  */
-function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, onTextDoubleClick, userName, userColor, shapeRef }: ShapeProps) {
+function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, onTextDoubleClick, userName, userColor, isDraggable = true, isListening = true, shapeRef }: ShapeProps) {
   // Render different components based on shape type
   if (shape.type === 'circle') {
     return (
@@ -47,6 +49,8 @@ function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, o
         onDragEnd={onDragEnd}
         userName={userName}
         userColor={userColor}
+        isDraggable={isDraggable}
+        isListening={isListening}
         shapeRef={shapeRef}
       />
     );
@@ -65,6 +69,8 @@ function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, o
         onDragEnd={onDragEnd}
         userName={userName}
         userColor={userColor}
+        isDraggable={isDraggable}
+        isListening={isListening}
         shapeRef={shapeRef}
       />
     );
@@ -84,6 +90,8 @@ function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, o
         onDoubleClick={onTextDoubleClick}
         userName={userName}
         userColor={userColor}
+        isDraggable={isDraggable}
+        isListening={isListening}
         shapeRef={shapeRef}
       />
     );
@@ -163,8 +171,8 @@ function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, o
         height={height}
         fill={shape.fill}
         rotation={shape.rotation || 0}
-        draggable
-        listening={true}
+        draggable={isDraggable}
+        listening={isListening}
         perfectDrawEnabled={false}
         hitStrokeWidth={0}
         onMouseDown={handleMouseDown}

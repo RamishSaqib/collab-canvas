@@ -6,6 +6,7 @@ import { useCanvas } from '../../hooks/useCanvas';
 import { useCursors } from '../../hooks/useCursors';
 import { usePresence } from '../../hooks/usePresence';
 import { useComments } from '../../hooks/useComments';
+import { useAIAgent } from '../../hooks/useAIAgent';
 import { checkMemoryLeaks } from '../../utils/performance';
 import Shape from './Shape';
 import Cursor from './Cursor';
@@ -28,7 +29,7 @@ import {
 } from '../../utils/alignment';
 import './Canvas.css';
 
-export type CanvasMode = 'select' | 'rectangle' | 'circle' | 'triangle' | 'text' | 'comment';
+export type CanvasMode = 'select' | 'hand' | 'rectangle' | 'circle' | 'triangle' | 'text' | 'comment';
 
 interface CanvasProps {
   user: {
@@ -93,7 +94,35 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     canRedo,
     createShapeWithHistory,
     deleteShapesWithHistory,
+    updateShapesWithHistory,
   } = useCanvas({ user });
+
+  // AI Agent for natural language commands
+  const {
+    processCommand: processAICommand,
+    isProcessing: isAIProcessing,
+    lastError: aiError,
+  } = useAIAgent(
+    shapes,
+    selectedShapeIds,
+    user.id,
+    createShapeWithHistory,
+    updateShapesWithHistory,
+    deleteShapesWithHistory
+  );
+
+  // Expose AI command handler via window for App to access
+  useEffect(() => {
+    (window as any).__processAICommand = processAICommand;
+    (window as any).__isAIProcessing = isAIProcessing;
+    (window as any).__aiError = aiError;
+    
+    return () => {
+      delete (window as any).__processAICommand;
+      delete (window as any).__isAIProcessing;
+      delete (window as any).__aiError;
+    };
+  }, [processAICommand, isAIProcessing, aiError]);
 
   const { otherCursors, broadcastCursor } = useCursors({
     userId: user.id,
@@ -106,6 +135,12 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     userName: user.name,
     userColor: user.color,
   });
+
+  // Filter cursors to only show online users (prevent ghost cursors)
+  const onlineCursors = useMemo(() => {
+    const onlineUserIds = new Set(onlineUsers.map(u => u.userId));
+    return otherCursors.filter(cursor => onlineUserIds.has(cursor.userId));
+  }, [otherCursors, onlineUsers]);
 
   // Comments system - using a fixed canvas ID for now
   const CANVAS_ID = 'default-canvas';
@@ -351,6 +386,11 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
       // Regular key shortcuts
       if (e.key === 'v' || e.key === 'V') {
         onModeChange('select');
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      } else if (e.key === 'h' || e.key === 'H') {
+        onModeChange('hand');
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
@@ -686,9 +726,19 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     const stage = e.target.getStage();
     const clickedOnEmpty = e.target === stage;
     
-    if (clickedOnEmpty && mode === 'select') {
-      // Ctrl/Cmd or middle mouse button = pan, otherwise = selection box
-      const shouldPan = e.evt.ctrlKey || e.evt.metaKey || e.evt.button === 1;
+    if (mode === 'hand') {
+      // Hand tool: ALWAYS pan, even if clicking on shapes (ignore shapes entirely)
+      e.cancelBubble = true; // Prevent shape interactions
+      isPanningRef.current = true;
+      didPanRef.current = false;
+      lastPanPositionRef.current = {
+        x: e.evt.clientX,
+        y: e.evt.clientY,
+      };
+    } else if (clickedOnEmpty && mode === 'select') {
+      // Select mode: middle mouse button = pan, otherwise = selection box
+      // (Removed Ctrl/Cmd requirement - hand tool replaces that)
+      const shouldPan = e.evt.button === 1;
       
       if (shouldPan) {
         // Start panning
@@ -957,7 +1007,7 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
   }, [shapes, updateShape, user.id]);
 
   return (
-    <div className="canvas-container">
+    <div className={`canvas-container ${mode === 'hand' ? 'hand-mode' : ''}`}>
       <Stage
         ref={stageRef}
         width={stageSize.width}
@@ -1006,6 +1056,8 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
                 onTextDoubleClick={shape.type === 'text' ? handleTextDoubleClick(shape.id) : undefined}
                 userName={lastModifiedUserName}
                 userColor={user.color}
+                isDraggable={mode !== 'hand'} // Disable dragging in hand mode
+                isListening={mode !== 'hand'} // Disable all interactions in hand mode
                 shapeRef={(node: Konva.Node | null) => {
                   if (node) {
                     shapeRefsMap.current.set(shape.id, node);
@@ -1051,8 +1103,8 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
             }}
           />
           
-          {/* Render other users' cursors */}
-          {otherCursors.map(cursor => (
+          {/* Render other users' cursors (only online users) */}
+          {onlineCursors.map(cursor => (
             <Cursor
               key={cursor.userId}
               cursor={cursor}
@@ -1198,6 +1250,11 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
       )}
 
       {/* Mode instructions */}
+      {mode === 'hand' && (
+        <div className="mode-instruction">
+          Click and drag to pan the canvas. Press V or ESC to switch to select tool.
+        </div>
+      )}
       {mode === 'rectangle' && (
         <div className="mode-instruction">
           Click anywhere on canvas to create a rectangle. Press V or ESC to exit.

@@ -39,6 +39,21 @@ function App() {
     }
   }
 
+  const handleAICommand = async (command: string): Promise<{ success: boolean; message: string }> => {
+    // Call the function exposed by Canvas
+    if ((window as any).__processAICommand) {
+      return await (window as any).__processAICommand(command);
+    }
+    return { success: false, message: 'AI agent not initialized' };
+  }
+
+  const getAIStatus = () => {
+    return {
+      isProcessing: (window as any).__isAIProcessing || false,
+      error: (window as any).__aiError || null,
+    };
+  }
+
   // Keyboard shortcut for color picker
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -74,6 +89,9 @@ function App() {
             onGenerateTestShapes={handleGenerateTestShapes}
             onClearAllShapes={handleClearAllShapes}
             shapeCount={0}
+            onAICommand={handleAICommand}
+            isAIProcessing={getAIStatus().isProcessing}
+            aiError={getAIStatus().error}
           />
           <ConnectionStatusBanner />
           <div className="main-content">

@@ -1,5 +1,6 @@
 import './Toolbar.css';
 import type { CanvasMode } from './Canvas';
+import { AIInput } from './AIInput';
 
 interface ToolbarProps {
   user: {
@@ -16,9 +17,12 @@ interface ToolbarProps {
   onGenerateTestShapes: (count: number) => void;
   onClearAllShapes: () => void;
   shapeCount: number;
+  onAICommand?: (command: string) => Promise<{ success: boolean; message: string }>;
+  isAIProcessing?: boolean;
+  aiError?: string | null;
 }
 
-export default function Toolbar({ user, onSignOut, mode, onModeChange, selectedColor, showColorPicker, onToggleColorPicker, onGenerateTestShapes, onClearAllShapes, shapeCount }: ToolbarProps) {
+export default function Toolbar({ user, onSignOut, mode, onModeChange, selectedColor, showColorPicker, onToggleColorPicker, onGenerateTestShapes, onClearAllShapes, shapeCount, onAICommand, isAIProcessing, aiError }: ToolbarProps) {
   const handleToolClick = (tool: CanvasMode) => {
     onModeChange(tool);
   };
@@ -38,6 +42,16 @@ export default function Toolbar({ user, onSignOut, mode, onModeChange, selectedC
               <path d="M3 3l14 7-6 2-2 6-6-15z" />
             </svg>
           </button>
+          <button 
+            className={`tool-button ${mode === 'hand' ? 'active' : ''}`}
+            title="Hand Tool (H)" 
+            onClick={() => handleToolClick('hand')}
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M9 3c-.55 0-1 .45-1 1v6H7c-.55 0-1 .45-1 1 0 .28.11.53.29.71l4 4c.18.18.43.29.71.29s.53-.11.71-.29l4-4c.18-.18.29-.43.29-.71 0-.55-.45-1-1-1h-1V4c0-.55-.45-1-1-1H9z" />
+            </svg>
+          </button>
+          <div className="toolbar-divider"></div>
           <button 
             className={`tool-button ${mode === 'rectangle' ? 'active' : ''}`}
             title="Rectangle Tool (R)" 
@@ -95,6 +109,19 @@ export default function Toolbar({ user, onSignOut, mode, onModeChange, selectedC
       </div>
 
       <div className="toolbar-right">
+        {/* AI Input */}
+        {onAICommand && (
+          <>
+            <AIInput
+              onSubmit={onAICommand}
+              isProcessing={isAIProcessing || false}
+              lastError={aiError || null}
+            />
+            <div className="toolbar-divider"></div>
+          </>
+        )}
+
+        {/* Performance testing buttons */}
         <div className="toolbar-perf-buttons">
           <button 
             className="perf-btn"

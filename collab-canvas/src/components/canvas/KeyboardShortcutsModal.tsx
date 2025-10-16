@@ -15,6 +15,7 @@ interface Shortcut {
 const shortcuts: Shortcut[] = [
   // Tools
   { keys: ['V'], description: 'Select tool', category: 'Tools' },
+  { keys: ['H'], description: 'Hand tool (pan canvas)', category: 'Tools' },
   { keys: ['R'], description: 'Rectangle tool', category: 'Tools' },
   { keys: ['C'], description: 'Circle tool', category: 'Tools' },
   { keys: ['T'], description: 'Triangle tool', category: 'Tools' },
@@ -58,8 +59,8 @@ const shortcuts: Shortcut[] = [
   
   // Navigation
   { keys: ['Mouse Wheel'], description: 'Zoom in/out', category: 'Navigation' },
-  { keys: ['Drag Empty Space'], description: 'Pan canvas', category: 'Navigation' },
-  { keys: ['Ctrl', 'Drag'], description: 'Pan canvas (force)', category: 'Navigation' },
+  { keys: ['Hand Tool + Drag'], description: 'Pan canvas', category: 'Navigation' },
+  { keys: ['Middle Mouse + Drag'], description: 'Pan canvas (quick)', category: 'Navigation' },
   
   // Help
   { keys: ['?'], description: 'Show keyboard shortcuts', category: 'Help' },

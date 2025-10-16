@@ -17,6 +17,8 @@ interface TextProps {
   onDoubleClick?: () => void;
   userName?: string; // Name of user who last modified (for tooltip)
   userColor?: string; // Current user's color for selection highlight
+  isDraggable?: boolean; // Whether shape can be dragged
+  isListening?: boolean; // Whether shape responds to events
   shapeRef?: (node: Konva.Node | null) => void;
 }
 
@@ -25,7 +27,7 @@ interface TextProps {
  * Supports double-click to trigger editing (handled at Canvas level)
  * Only re-renders when shape data, selection state, or callbacks change
  */
-function Text({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, onDoubleClick, userName, userColor, shapeRef }: TextProps) {
+function Text({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, onDoubleClick, userName, userColor, isDraggable = true, isListening = true, shapeRef }: TextProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
@@ -105,8 +107,8 @@ function Text({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, on
         fontStyle={shape.fontStyle || 'normal'}
         align={shape.textAlign || 'left'}
         rotation={shape.rotation || 0}
-        draggable
-        listening={true}
+        draggable={isDraggable}
+        listening={isListening}
         perfectDrawEnabled={false}
         hitStrokeWidth={0}
         onMouseDown={handleMouseDown}

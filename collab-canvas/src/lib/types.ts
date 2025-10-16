@@ -92,3 +92,51 @@ export interface Comment {
   createdAt: number;
   updatedAt: number;
 }
+
+// AI Canvas Agent Types
+export type CommandIntent =
+  | 'create'
+  | 'delete'
+  | 'move'
+  | 'resize'
+  | 'rotate'
+  | 'changeColor'
+  | 'arrange'
+  | 'grid'
+  | 'stack'
+  | 'complex';
+
+export interface CommandEntity {
+  shapeType?: 'rectangle' | 'circle' | 'triangle' | 'text';
+  color?: string;
+  position?: { x: number; y: number };
+  size?: { width: number; height: number } | { radius: number };
+  rotation?: number;
+  text?: string;
+  count?: number; // For grids like "3x3"
+  spacing?: number;
+  direction?: 'horizontal' | 'vertical';
+  query?: ShapeQuery; // For finding existing shapes
+  fontSize?: number;
+}
+
+export interface ShapeQuery {
+  type?: 'rectangle' | 'circle' | 'triangle' | 'text' | 'all';
+  color?: string;
+  position?: 'center' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  selected?: boolean; // Query selected shapes
+}
+
+export interface AICommand {
+  intent: CommandIntent;
+  entities: CommandEntity;
+  confidence?: number;
+  description?: string; // Human-readable description
+}
+
+export interface AIResponse {
+  success: boolean;
+  commands: AICommand[];
+  error?: string;
+  suggestions?: string[];
+}

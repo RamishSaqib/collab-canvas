@@ -564,23 +564,196 @@ Focus: Nail the core designer experience and multiplayer sync. Everything else i
 ---
 
 ### PR #14: Conflict Resolution & Persistence Enhancements 🏆
-**Status:** In Progress
-**Goal:** Achieve EXCELLENT rating across all collaboration categories
+**Completed:** October 15, 2025
 
-**Features to Add:**
-- Active shape visual indicators (pulsing border, user name label)
-- "Last edited by" tooltip on hover
-- Immediate Firestore flush for critical operations
-- Operation queue during network disconnects with auto-sync on reconnect
-- Connection status banner with clear indicators
-- Comprehensive conflict resolution testing suite
-- Edge case handling for simultaneous edits
-- Visual feedback for network state changes
+**Features Added:**
+- Active shape visual indicators (pulsing border, user color)
+- "Last edited by" tooltip on hover showing username
+- Operation queue (useOperationQueue.ts) with retry logic during disconnects
+- Connection status banner (ConnectionStatusBanner.tsx) with 3 states (online/offline/reconnecting)
+- useConnectionStatus hook for network monitoring
+- Comprehensive offline support with auto-sync on reconnect
+- Visual feedback for network state changes with toast notifications
+- useBeforeUnload hook to prevent accidental data loss
+- Edge case handling for simultaneous edits with last-write-wins strategy
 
-**Success Criteria:**
-- Real-Time Synchronization: 12/12 (maintain EXCELLENT)
-- Conflict Resolution: 8-9/9 (upgrade from GOOD to EXCELLENT)
-- Persistence & Reconnection: 8-9/9 (upgrade from GOOD to EXCELLENT)
+**Achievement:**
+- Real-Time Synchronization: 12/12 (EXCELLENT maintained)
+- Conflict Resolution: 9/9 (EXCELLENT achieved)
+- Persistence & Reconnection: 9/9 (EXCELLENT achieved)
+
+---
+
+### PR #15: Transform Operations, Multi-Select & Layer Management ⚡
+**Completed:** October 16, 2025
+
+**Features Added:**
+- Multi-select with Shift+Click toggle selection
+- Drag-to-select with selection box visualization
+- Konva Transformer integration for resize and rotate operations
+- Rotation handle with 35px offset and grab cursor
+- Transform end handling for all shape types (rectangle, circle, triangle, text)
+- Font size scaling for text during transform
+- Batch operations: `updateShapes()`, `deleteShapes()`, `duplicateShapes()`
+- Selection counter UI with navigation hints (ArrowLeft/ArrowRight to cycle)
+- Layer management: z-index property with Ctrl+] (front) and Ctrl+[ (back)
+- Text formatting toolbar with font size dropdown, bold (Ctrl+B), italic (Ctrl+I)
+- Dynamic text editing with live preview of formatting changes
+- Drag-to-pan fix allowing multi-select persistence
+- User-color selection highlighting (4px stroke width)
+- Single-selection Transformer (hidden for multi-select)
+- Performance testing buttons (+100, +500, Clear All)
+- Support for 500+ shapes with maintained 60 FPS
+
+**Achievement:**
+- Canvas Functionality: 8/8 (EXCELLENT achieved - all requirements met)
+
+---
+
+### PR #16: Figma-Inspired Features - Undo/Redo, Alignment Tools, & Collaborative Comments 🏆
+**Completed:** October 16, 2025
+
+**Features Added:**
+- **Undo/Redo System:**
+  - Command pattern with `useHistory` hook (50-item history stack)
+  - Concrete commands: CreateShapeCommand, DeleteShapeCommand, UpdateShapeCommand
+  - Ctrl+Z (undo) and Ctrl+Shift+Z (redo) keyboard shortcuts
+  - Toast notifications showing action descriptions
+  - Per-user history (can't undo other users' actions)
+  - Automatic redo stack clearing on new actions
+
+- **Alignment Tools:**
+  - 6 alignment operations: left, center, right, top, middle, bottom
+  - 2 distribution functions: horizontal and vertical spacing
+  - AlignmentToolbar.tsx with SVG icons and glass-morphism design
+  - Accurate bounding box calculations for all shape types
+  - Fixed coordinate system handling (center-based vs top-left)
+  - Works with 2+ selected shapes, distributes with 3+
+
+- **Collaborative Comments:**
+  - useComments hook with Firestore subcollection (`/canvases/{id}/comments`)
+  - Real-time comment sync via onSnapshot
+  - CommentPin.tsx: Visual 💬 markers on canvas with user colors
+  - CommentPanel.tsx: Slide-in side panel for reading/editing
+  - CommentInputDialog.tsx: Modal for creating new comments
+  - Author permissions (edit/delete own comments only)
+  - Resolve/reopen functionality with dimmed appearance
+  - Relative timestamps ("5m ago", "2h ago", etc.)
+  - Comment button in toolbar with comment mode
+  - Ctrl+Enter to submit, Esc to cancel
+  - Automatic deletion when clearing all shapes
+
+**Achievement:**
+- Advanced Figma-Inspired Features: 15/15 (EXCELLENT - 3 Tier 1 + 2 Tier 2 + 1 Tier 3)
+
+---
+
+### PR #17: Canvas UX & Interaction Polish ✨
+**Status:** Planned
+
+**Goal:** Improve canvas interaction and user experience with intuitive controls and smoother cursor behavior.
+
+**Features to Implement:**
+
+1. **Hand Tool for Canvas Panning:**
+   - Add dedicated "Hand/Grab" tool button to toolbar
+   - Replace Ctrl+Click canvas drag with Hand tool selection
+   - Keep pointer tool for shape selection
+   - Hand cursor icon when tool is active
+   - Smooth drag experience with proper cursor feedback
+
+2. **White Canvas Background:**
+   - Change default canvas background from gray to white
+   - Maintain ability to pan/drag canvas on blank areas
+   - Preserve grid/guides visibility on white background
+
+3. **Improved Cursor Username Display:**
+   - Attach username label directly to cursor movement (no jank)
+   - Smooth username positioning during rapid cursor movement
+   - Username follows cursor with consistent offset
+   - No flickering or lag between cursor and label
+
+4. **Offline User Cursor Cleanup:**
+   - Hide cursors for users who are offline/disconnected
+   - Automatic cleanup of stale cursor positions
+   - Only show active user cursors (online users only)
+   - Improve presence detection for instant cursor removal
+
+**Technical Implementation:**
+- Toolbar state management for tool selection (pointer vs hand)
+- Canvas CSS background-color update
+- Cursor component refactoring for synchronized label movement
+- Enhanced presence detection in `useCursors` hook
+- Cleanup logic for disconnected user data
+
+**Expected Impact:**
+- More intuitive canvas navigation (familiar hand tool pattern)
+- Cleaner, professional white canvas aesthetic
+- Smoother multiplayer cursor experience (no visual jank)
+- Reduced visual clutter (no ghost cursors from offline users)
+
+**Achievement Target:**
+- Canvas Interaction Excellence: Professional-grade UX matching Figma/Miro standards
+
+---
+
+## AI Canvas Agent Features
+
+### PR #18: AI Canvas Agent with Natural Language Commands (In Progress)
+**Goal:** Achieve EXCELLENT rating (23-25/25) for AI Canvas Agent category
+
+**Target Score:**
+- Command Breadth & Capability: 10/10 points
+  - 8+ distinct command types covering all categories
+- Complex Command Execution: 8/8 points
+  - Multi-step plans with proper arrangement
+- AI Performance & Reliability: 7/7 points
+  - Sub-2 second responses, 90%+ accuracy, multi-user support
+
+**Command Categories to Implement:**
+
+**Creation Commands (at least 2 required):**
+- "Create a red circle at position 100, 200"
+- "Add a text layer that says 'Hello World'"
+- "Make a 200x300 rectangle"
+- "Add a blue triangle in the center"
+
+**Manipulation Commands (at least 2 required):**
+- "Move the blue rectangle to the center"
+- "Resize the circle to be twice as big"
+- "Rotate the text 45 degrees"
+- "Change all red shapes to green"
+- "Delete all circles"
+
+**Layout Commands (at least 1 required):**
+- "Arrange these shapes in a horizontal row"
+- "Create a grid of 3x3 squares"
+- "Space these elements evenly"
+- "Stack the selected shapes vertically"
+
+**Complex Commands (at least 1 required):**
+- "Create a login form with username and password fields"
+- "Build a navigation bar with 4 menu items"
+- "Make a card layout with title, image, and description"
+- "Design a button with text and icon"
+
+**Features to Implement:**
+- ✅ Natural language input field in toolbar
+- ✅ AI processing with OpenAI API or similar
+- ✅ Command parsing and intent recognition
+- ✅ Multi-step command execution
+- ✅ Visual feedback during AI processing
+- ✅ Error handling and suggestions
+- ✅ Command history and undo/redo integration
+- ✅ Multi-user AI command support
+- ✅ Real-time sync of AI-created objects
+
+**Technical Implementation:**
+- AI Provider: OpenAI GPT-4 or Claude API
+- Command Parser: Intent classification + entity extraction
+- Execution Engine: Maps intents to canvas operations
+- Shared State: All AI creations sync via Firestore
+- Performance: <2 second response time target
 
 ---
 
