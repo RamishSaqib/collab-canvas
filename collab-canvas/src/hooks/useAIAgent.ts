@@ -41,22 +41,11 @@ export function useAIAgent(
         };
       }
 
-      // Collect shape customizations to apply after all creates
-      const pendingCustomizations = new Map<string, Partial<CanvasObject>>();
-      
       // Execute all commands
       let executedCount = 0;
       for (const command of aiResponse.commands) {
-        const success = await executeCommand(command, pendingCustomizations);
+        const success = await executeCommand(command);
         if (success) executedCount++;
-      }
-
-      // Apply all customizations in one batch (preserves creation order)
-      if (pendingCustomizations.size > 0) {
-        const ids = Array.from(pendingCustomizations.keys());
-        const oldStates = new Map(ids.map(id => [id, {}]));
-        const newStates = pendingCustomizations;
-        updateShapesWithHistory(ids, oldStates, newStates);
       }
 
       // Update state
@@ -81,13 +70,13 @@ export function useAIAgent(
   /**
    * Execute a single AI command
    */
-  const executeCommand = useCallback(async (command: AICommand, pendingCustomizations: Map<string, Partial<CanvasObject>>): Promise<boolean> => {
+  const executeCommand = useCallback(async (command: AICommand): Promise<boolean> => {
     try {
       console.log('⚡ Executing command:', command.intent, command.entities);
 
       switch (command.intent) {
         case 'create':
-          return executeCreateCommand(command, pendingCustomizations);
+          return executeCreateCommand(command);
         
         case 'delete':
           return executeDeleteCommand(command);
@@ -115,7 +104,7 @@ export function useAIAgent(
         
         case 'complex':
           // Complex commands are already broken down into multiple create commands by AI
-          return executeCreateCommand(command, pendingCustomizations);
+          return executeCreateCommand(command);
         
         default:
           console.warn('Unknown command intent:', command.intent);
@@ -130,9 +119,9 @@ export function useAIAgent(
   /**
    * Execute CREATE command
    * For AI-created shapes, we use createShapeWithHistory for defaults,
-   * but collect customizations to apply in batch after all creates
+   * then immediately apply customizations to preserve rendering order
    */
-  const executeCreateCommand = useCallback((command: AICommand, pendingCustomizations: Map<string, Partial<CanvasObject>>): boolean => {
+  const executeCreateCommand = useCallback((command: AICommand): boolean => {
     const { entities } = command;
     
     if (!entities.shapeType) {
@@ -187,13 +176,19 @@ export function useAIAgent(
       }
     }
 
-    // Add to pending customizations (will be applied in batch)
-    if (Object.keys(customizations).length > 0) {
-      pendingCustomizations.set(newShape.id, customizations);
-    }
+    // Set zIndex based on shape type to ensure proper layering
+    // Rectangles/circles/triangles: zIndex 0-999 (background)
+    // Text: zIndex 1000+ (foreground)
+    const baseZIndex = entities.shapeType === 'text' ? 1000 : 0;
+    customizations.zIndex = baseZIndex + Date.now() % 1000; // Add timestamp for uniqueness
+
+    // Apply customizations with zIndex to ensure proper layering
+    const oldState = new Map([[newShape.id, {}]]);
+    const newState = new Map([[newShape.id, customizations]]);
+    updateShapesWithHistory([newShape.id], oldState, newState);
 
     return true;
-  }, [createShapeWithHistory, userId]);
+  }, [createShapeWithHistory, updateShapesWithHistory, userId]);
 
   /**
    * Execute DELETE command
@@ -431,9 +426,6 @@ export function useAIAgent(
     const startX = 150;
     const startY = 150;
 
-    // Collect customizations for grid shapes
-    const gridCustomizations = new Map<string, Partial<CanvasObject>>();
-
     // Create grid with proper spacing based on actual shape sizes
     for (let row = 0; row < gridSize; row++) {
       for (let col = 0; col < gridSize; col++) {
@@ -448,7 +440,7 @@ export function useAIAgent(
           }
         };
         
-        executeCreateCommand(gridCommand, gridCustomizations);
+        executeCreateCommand(gridCommand);
       }
     }
 

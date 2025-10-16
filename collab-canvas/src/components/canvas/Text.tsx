@@ -122,10 +122,11 @@ function Text({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, on
         // Dynamic styling based on state
         stroke={getStrokeColor()}
         strokeWidth={getStrokeWidth()}
-        shadowColor={isSelected ? '#667eea' : 'black'}
-        shadowBlur={isSelected ? 10 : 5}
-        shadowOpacity={isSelected ? 0.6 : 0.3}
-        shadowOffset={{ x: 0, y: 2 }}
+        // No shadow/highlight on text to avoid obscuring content during editing
+        shadowColor="transparent"
+        shadowBlur={0}
+        shadowOpacity={0}
+        shadowOffset={{ x: 0, y: 0 }}
         shadowForStrokeEnabled={false}
         // Interaction feedback
         onMouseEnter={(e) => {

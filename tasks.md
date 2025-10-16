@@ -2428,15 +2428,17 @@ Implement an AI-powered canvas agent that understands natural language commands 
   - Verify alignment and spacing accuracy
   
 #### 23. Test Complex Commands Thoroughly
-- [ ] Validate complex multi-step commands
+- [x] Validate complex multi-step commands ✅
   - Test: "Create a login form" (5 shapes arranged properly) ✅
   - Test: "Build a navigation bar with 4 menu items" ✅
+  - Test: "Build a navbar with 10 items" (20 shapes with proper layering) ✅
   - Test: "Make a card layout with title, image, description" ✅
   - Test: "Design a button with text and icon" ✅
-  - Verify all shapes created
-  - Verify proper arrangement
-  - Verify styling consistency
-  - Measure execution time (<2 seconds)
+  - Verify all shapes created ✅
+  - Verify proper arrangement ✅
+  - Verify styling consistency ✅
+  - Measure execution time (<2 seconds) ✅
+  - **Solution:** Implemented zIndex-based layering (rectangles: 0-999, text: 1000+) to ensure text always renders on top
   
 #### 24. Test Edge Cases and Error Handling
 - [ ] Comprehensive error scenario testing
