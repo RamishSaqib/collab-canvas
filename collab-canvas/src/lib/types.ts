@@ -58,3 +58,37 @@ export interface AuthState {
   error: string | null;
 }
 
+// Command Pattern for Undo/Redo
+export interface Command {
+  execute(): void;
+  undo(): void;
+  redo(): void;
+  getDescription(): string;
+}
+
+export type CommandType = 
+  | 'create'
+  | 'delete'
+  | 'update'
+  | 'move'
+  | 'transform'
+  | 'multi';
+
+// Collaborative Comments
+export interface Comment {
+  id: string;
+  text: string;
+  author: {
+    id: string;
+    name: string;
+    color: string;
+  };
+  position: {
+    x: number;
+    y: number;
+  };
+  shapeId?: string; // Optional: if attached to a shape
+  resolved: boolean;
+  createdAt: number;
+  updatedAt: number;
+}

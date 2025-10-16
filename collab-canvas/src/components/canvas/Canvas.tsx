@@ -5,15 +5,30 @@ import { clampZoom, calculateZoomPosition, getZoomPoint, fitStageToWindow, getRe
 import { useCanvas } from '../../hooks/useCanvas';
 import { useCursors } from '../../hooks/useCursors';
 import { usePresence } from '../../hooks/usePresence';
+import { useComments } from '../../hooks/useComments';
 import { checkMemoryLeaks } from '../../utils/performance';
 import Shape from './Shape';
 import Cursor from './Cursor';
 import KeyboardShortcutsModal from './KeyboardShortcutsModal';
 import ColorPicker from './ColorPicker';
 import TextFormatBar from './TextFormatBar';
+import AlignmentToolbar from './AlignmentToolbar';
+import CommentPin from './CommentPin';
+import CommentPanel from './CommentPanel';
+import CommentInputDialog from './CommentInputDialog';
+import {
+  alignLeft,
+  alignCenter,
+  alignRight,
+  alignTop,
+  alignMiddle,
+  alignBottom,
+  distributeHorizontally,
+  distributeVertically,
+} from '../../utils/alignment';
 import './Canvas.css';
 
-export type CanvasMode = 'select' | 'rectangle' | 'circle' | 'triangle' | 'text';
+export type CanvasMode = 'select' | 'rectangle' | 'circle' | 'triangle' | 'text' | 'comment';
 
 interface CanvasProps {
   user: {
@@ -36,7 +51,10 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [deleteToast, setDeleteToast] = useState(false);
+  const [undoRedoToast, setUndoRedoToast] = useState<string | null>(null);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [commentInputDialog, setCommentInputDialog] = useState<{ x: number; y: number; shapeId?: string } | null>(null);
+  const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
   const [editingTextValue, setEditingTextValue] = useState('');
   const [cursorPreviewPos, setCursorPreviewPos] = useState<{ x: number; y: number } | null>(null);
   const [activeSelectionIndex, setActiveSelectionIndex] = useState(0);
@@ -54,11 +72,9 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     shapes,
     selectedShapeIds,
     activeShapes,
-    createShape,
     batchCreateShapes,
     updateShape,
     updateShapes,
-    deleteShapes,
     batchDeleteShapes,
     duplicateShapes,
     selectShapes,
@@ -68,6 +84,13 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     updateActivePosition,
     markShapeActive,
     markShapeInactive,
+    // History
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    createShapeWithHistory,
+    deleteShapesWithHistory,
   } = useCanvas({ user });
 
   const { otherCursors, broadcastCursor } = useCursors({
@@ -80,6 +103,19 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     userId: user.id,
     userName: user.name,
     userColor: user.color,
+  });
+
+  // Comments system - using a fixed canvas ID for now
+  const CANVAS_ID = 'default-canvas';
+  const {
+    comments,
+    createComment,
+    updateComment,
+    toggleResolveComment,
+    deleteComment,
+  } = useComments({
+    canvasId: CANVAS_ID,
+    userId: user.id,
   });
   
   // Create a map of userId -> userName for tooltips
@@ -250,7 +286,27 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
 
       // Ctrl/Cmd key shortcuts
       if (e.ctrlKey || e.metaKey) {
-        if (e.key === 'd' || e.key === 'D') {
+        if (e.key === 'z' || e.key === 'Z') {
+          // Ctrl+Z: Undo or Ctrl+Shift+Z: Redo
+          e.preventDefault();
+          if (e.shiftKey) {
+            // Redo
+            if (canRedo) {
+              const description = redo();
+              console.log('↪️ Redo:', description);
+              setUndoRedoToast('Redo');
+              setTimeout(() => setUndoRedoToast(null), 1500);
+            }
+          } else {
+            // Undo
+            if (canUndo) {
+              const description = undo();
+              console.log('↩️ Undo:', description);
+              setUndoRedoToast('Undo');
+              setTimeout(() => setUndoRedoToast(null), 1500);
+            }
+          }
+        } else if (e.key === 'd' || e.key === 'D') {
           // Ctrl+D: Duplicate selected shapes
           e.preventDefault();
           if (selectedShapeIds.length > 0) {
@@ -326,7 +382,8 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
         // Delete selected shapes
         if (selectedShapeIds.length > 0) {
           e.preventDefault(); // Prevent browser back navigation on Backspace
-          deleteShapes(selectedShapeIds);
+          // Use history-enabled deletion for undo/redo support
+          deleteShapesWithHistory(selectedShapeIds);
           console.log('🗑️ Deleted', selectedShapeIds.length, 'shape(s)');
           
           // Show deletion feedback
@@ -366,7 +423,7 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onModeChange, clearSelection, deleteShapes, duplicateShapes, selectAll, updateShapes, selectedShapeIds, editingTextId, user.id, shapes, activeSelectionIndex, stageScale]);
+  }, [onModeChange, clearSelection, deleteShapesWithHistory, duplicateShapes, selectAll, updateShapes, selectedShapeIds, editingTextId, user.id, shapes, activeSelectionIndex, stageScale, undo, redo, canUndo, canRedo]);
 
   // Determine if text format bar should be shown and get common formatting
   const selectedTextShapes = useMemo(() => {
@@ -444,6 +501,126 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     console.log('📝 Toggled italic:', newStyle);
   }, [selectedTextShapes, commonTextFormat, updateShapes]);
 
+  // Alignment handlers
+  const handleAlignLeft = useCallback(() => {
+    if (selectedShapeIds.length < 2) return;
+    const selectedShapes = shapes.filter(s => selectedShapeIds.includes(s.id));
+    const updates = alignLeft(selectedShapes);
+    updates.forEach((update, id) => {
+      updateShape(id, update);
+    });
+    console.log('↔️ Aligned left');
+  }, [selectedShapeIds, shapes, updateShape]);
+
+  const handleAlignCenter = useCallback(() => {
+    if (selectedShapeIds.length < 2) return;
+    const selectedShapes = shapes.filter(s => selectedShapeIds.includes(s.id));
+    const updates = alignCenter(selectedShapes);
+    updates.forEach((update, id) => {
+      updateShape(id, update);
+    });
+    console.log('↔️ Aligned center');
+  }, [selectedShapeIds, shapes, updateShape]);
+
+  const handleAlignRight = useCallback(() => {
+    if (selectedShapeIds.length < 2) return;
+    const selectedShapes = shapes.filter(s => selectedShapeIds.includes(s.id));
+    const updates = alignRight(selectedShapes);
+    updates.forEach((update, id) => {
+      updateShape(id, update);
+    });
+    console.log('↔️ Aligned right');
+  }, [selectedShapeIds, shapes, updateShape]);
+
+  const handleAlignTop = useCallback(() => {
+    if (selectedShapeIds.length < 2) return;
+    const selectedShapes = shapes.filter(s => selectedShapeIds.includes(s.id));
+    const updates = alignTop(selectedShapes);
+    updates.forEach((update, id) => {
+      updateShape(id, update);
+    });
+    console.log('↕️ Aligned top');
+  }, [selectedShapeIds, shapes, updateShape]);
+
+  const handleAlignMiddle = useCallback(() => {
+    if (selectedShapeIds.length < 2) return;
+    const selectedShapes = shapes.filter(s => selectedShapeIds.includes(s.id));
+    const updates = alignMiddle(selectedShapes);
+    updates.forEach((update, id) => {
+      updateShape(id, update);
+    });
+    console.log('↕️ Aligned middle');
+  }, [selectedShapeIds, shapes, updateShape]);
+
+  const handleAlignBottom = useCallback(() => {
+    if (selectedShapeIds.length < 2) return;
+    const selectedShapes = shapes.filter(s => selectedShapeIds.includes(s.id));
+    const updates = alignBottom(selectedShapes);
+    updates.forEach((update, id) => {
+      updateShape(id, update);
+    });
+    console.log('↕️ Aligned bottom');
+  }, [selectedShapeIds, shapes, updateShape]);
+
+  const handleDistributeHorizontally = useCallback(() => {
+    if (selectedShapeIds.length < 3) return;
+    const selectedShapes = shapes.filter(s => selectedShapeIds.includes(s.id));
+    const updates = distributeHorizontally(selectedShapes);
+    updates.forEach((update, id) => {
+      updateShape(id, update);
+    });
+    console.log('↔️ Distributed horizontally');
+  }, [selectedShapeIds, shapes, updateShape]);
+
+  const handleDistributeVertically = useCallback(() => {
+    if (selectedShapeIds.length < 3) return;
+    const selectedShapes = shapes.filter(s => selectedShapeIds.includes(s.id));
+    const updates = distributeVertically(selectedShapes);
+    updates.forEach((update, id) => {
+      updateShape(id, update);
+    });
+    console.log('↕️ Distributed vertically');
+  }, [selectedShapeIds, shapes, updateShape]);
+
+  // Comment handlers
+  const handleCommentSubmit = useCallback(async (text: string) => {
+    if (!commentInputDialog) return;
+    
+    await createComment(
+      text,
+      { x: commentInputDialog.x, y: commentInputDialog.y },
+      { id: user.id, name: user.name, color: user.color },
+      commentInputDialog.shapeId
+    );
+    setCommentInputDialog(null);
+    onModeChange('select'); // Return to select mode after commenting
+  }, [commentInputDialog, createComment, user, onModeChange]);
+
+  const handleCommentCancel = useCallback(() => {
+    setCommentInputDialog(null);
+  }, []);
+
+  const handleCommentPinClick = useCallback((commentId: string) => {
+    setSelectedCommentId(commentId);
+  }, []);
+
+  const handleCommentPanelClose = useCallback(() => {
+    setSelectedCommentId(null);
+  }, []);
+
+  const handleCommentUpdate = useCallback(async (commentId: string, text: string) => {
+    await updateComment(commentId, text);
+  }, [updateComment]);
+
+  const handleCommentResolve = useCallback(async (commentId: string, resolved: boolean) => {
+    await toggleResolveComment(commentId, !resolved);
+  }, [toggleResolveComment]);
+
+  const handleCommentDelete = useCallback(async (commentId: string) => {
+    await deleteComment(commentId);
+    setSelectedCommentId(null);
+  }, [deleteComment]);
+
   // Handle zoom with mouse wheel (memoized)
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault();
@@ -471,23 +648,36 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     setStagePosition(newPos);
   }, []);
 
-  // Handle stage click (for creating shapes or deselecting) - memoized
+  // Handle stage click (for creating shapes, comments, or deselecting) - memoized
   const handleStageClick = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
     // If clicking on the stage itself (not a shape)
     if (e.target === e.target.getStage()) {
-      if (mode === 'rectangle' || mode === 'circle' || mode === 'triangle' || mode === 'text') {
+      if (mode === 'comment') {
+        // Create comment at click position
+        const stage = stageRef.current;
+        if (stage) {
+          const canvasPos = getRelativePointerPosition(stage);
+          const screenPos = stage.getPointerPosition();
+          if (screenPos) {
+            setCommentInputDialog({ x: screenPos.x, y: screenPos.y });
+            // Store the canvas position for later when comment is submitted
+            setCommentInputDialog({ x: canvasPos.x, y: canvasPos.y });
+          }
+        }
+      } else if (mode === 'rectangle' || mode === 'circle' || mode === 'triangle' || mode === 'text') {
         // Create shape at click position based on current mode with selected color
         const stage = stageRef.current;
         if (stage) {
           const pos = getRelativePointerPosition(stage);
-          createShape(pos.x, pos.y, user.id, mode, selectedColor);
+          // Use history-enabled creation for undo/redo support
+          createShapeWithHistory(pos.x, pos.y, user.id, mode, selectedColor);
         }
       } else if (mode === 'select' && !e.evt.shiftKey && !didPanRef.current) {
         // Only deselect if: not holding Shift AND didn't pan the canvas
         clearSelection();
       }
     }
-  }, [mode, createShape, clearSelection, user.id, selectedColor]);
+  }, [mode, createShapeWithHistory, clearSelection, user.id, selectedColor]);
 
   // Manual panning or selection box: Handle mouse down on stage - memoized
   const handleStageMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -840,6 +1030,16 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
               stageScale={stageScale}
             />
           ))}
+
+          {/* Render comment pins */}
+          {comments.map(comment => (
+            <CommentPin
+              key={comment.id}
+              comment={comment}
+              onClick={() => handleCommentPinClick(comment.id)}
+              isSelected={selectedCommentId === comment.id}
+            />
+          ))}
           
           {/* Cursor preview - show what shape will be created */}
           {cursorPreviewPos && mode !== 'select' && (
@@ -1014,6 +1214,14 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
         </div>
       )}
 
+      {/* Undo/Redo toast notification */}
+      {undoRedoToast && (
+        <div className="delete-toast">
+          <span className="toast-icon">{undoRedoToast === 'Undo' ? '↩️' : '↪️'}</span>
+          <span className="toast-text">{undoRedoToast}</span>
+        </div>
+      )}
+
       {/* Text editing input (rendered outside Konva Stage) */}
       {editingTextId && (() => {
         const editingShape = shapes.find(s => s.id === editingTextId);
@@ -1070,6 +1278,47 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
         />
       )}
 
+      {/* Alignment toolbar - shows when 2+ shapes selected */}
+      {selectedShapeIds.length >= 2 && (
+        <AlignmentToolbar
+          onAlignLeft={handleAlignLeft}
+          onAlignCenter={handleAlignCenter}
+          onAlignRight={handleAlignRight}
+          onAlignTop={handleAlignTop}
+          onAlignMiddle={handleAlignMiddle}
+          onAlignBottom={handleAlignBottom}
+          onDistributeHorizontally={handleDistributeHorizontally}
+          onDistributeVertically={handleDistributeVertically}
+          canDistribute={selectedShapeIds.length >= 3}
+        />
+      )}
+
+      {/* Comment input dialog */}
+      {commentInputDialog && (
+        <CommentInputDialog
+          position={commentInputDialog}
+          onSubmit={handleCommentSubmit}
+          onCancel={handleCommentCancel}
+        />
+      )}
+
+      {/* Comment panel */}
+      {selectedCommentId && (() => {
+        const comment = comments.find(c => c.id === selectedCommentId);
+        if (!comment) return null;
+        
+        return (
+          <CommentPanel
+            comment={comment}
+            onClose={handleCommentPanelClose}
+            onResolve={() => handleCommentResolve(comment.id, comment.resolved)}
+            onDelete={() => handleCommentDelete(comment.id)}
+            onUpdate={(text) => handleCommentUpdate(comment.id, text)}
+            canDelete={comment.author.id === user.id}
+          />
+        );
+      })()}
+
       {/* Performance Testing Panel */}
       <div className="perf-test-panel">
         <div className="perf-test-title">Performance Testing</div>
@@ -1091,12 +1340,15 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
           <button 
             className="perf-test-btn danger"
             onClick={async () => {
-              if (window.confirm(`Delete all ${shapes.length} shapes?`)) {
+              if (window.confirm(`Delete all ${shapes.length} shapes and ${comments.length} comments?`)) {
                 const allIds = shapes.map(s => s.id);
+                // Delete all shapes
                 await batchDeleteShapes(allIds);
+                // Delete all comments
+                await Promise.all(comments.map(c => deleteComment(c.id)));
               }
             }}
-            title="Clear all shapes"
+            title="Clear all shapes and comments"
           >
             Clear All
           </button>

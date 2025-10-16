@@ -19,6 +19,7 @@ const shortcuts: Shortcut[] = [
   { keys: ['C'], description: 'Circle tool', category: 'Tools' },
   { keys: ['T'], description: 'Triangle tool', category: 'Tools' },
   { keys: ['A'], description: 'Text tool', category: 'Tools' },
+  { keys: ['Click Comment Button'], description: 'Comment tool', category: 'Tools' },
   { keys: ['P'], description: 'Color picker', category: 'Tools' },
   { keys: ['ESC'], description: 'Deselect & return to select mode', category: 'Tools' },
   
@@ -42,6 +43,15 @@ const shortcuts: Shortcut[] = [
   { keys: ['Double-Click Text'], description: 'Edit text content', category: 'Text Formatting' },
   { keys: ['Ctrl', 'B'], description: 'Toggle bold', category: 'Text Formatting' },
   { keys: ['Ctrl', 'I'], description: 'Toggle italic', category: 'Text Formatting' },
+  
+  // History
+  { keys: ['Ctrl', 'Z'], description: 'Undo', category: 'History' },
+  { keys: ['Ctrl', 'Shift', 'Z'], description: 'Redo', category: 'History' },
+  
+  // Comments
+  { keys: ['Click (Comment Mode)'], description: 'Add comment at position', category: 'Comments' },
+  { keys: ['Click Pin'], description: 'View/edit comment', category: 'Comments' },
+  { keys: ['Ctrl', 'Enter'], description: 'Submit comment', category: 'Comments' },
   
   // Color
   { keys: ['Enter'], description: 'Apply color to selected shape', category: 'Color' },

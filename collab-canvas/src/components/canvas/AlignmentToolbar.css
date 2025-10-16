@@ -1,0 +1,100 @@
+.alignment-toolbar {
+  position: absolute;
+  top: 70px; /* Below text format bar if present */
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 10px 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  z-index: 999;
+  transition: all 0.2s ease-out;
+  opacity: 1;
+  pointer-events: auto;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.alignment-toolbar.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(-10px);
+}
+
+.alignment-section {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.alignment-label {
+  font-size: 0.8rem;
+  color: #666;
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+.alignment-btn {
+  background: none;
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #667eea;
+  width: 36px;
+  height: 36px;
+}
+
+.alignment-btn:hover:not(:disabled) {
+  background-color: #eff2ff;
+  transform: scale(1.05);
+}
+
+.alignment-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.alignment-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.alignment-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.alignment-divider {
+  width: 1px;
+  height: 24px;
+  background-color: #e2e8f0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .alignment-toolbar {
+    top: 60px;
+    padding: 8px 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+    max-width: 90vw;
+  }
+
+  .alignment-btn {
+    width: 32px;
+    height: 32px;
+    padding: 6px;
+  }
+
+  .alignment-label {
+    font-size: 0.75rem;
+  }
+}
+

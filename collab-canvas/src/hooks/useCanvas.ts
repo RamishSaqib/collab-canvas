@@ -3,7 +3,15 @@ import type { CanvasObject } from '../lib/types';
 import { useFirestore } from './useFirestore';
 import { useRealtimeSync, type ActiveShape } from './useRealtimeSync';
 import { useBeforeUnload } from './useBeforeUnload';
+import { useHistory } from './useHistory';
 import type { User } from '../lib/types';
+import {
+  CreateShapeCommand,
+  DeleteShapeCommand,
+  UpdateShapeCommand,
+  // MoveShapeCommand, // TODO: Add when implementing drag command
+  // TransformShapeCommand, // TODO: Add when implementing transform command
+} from '../utils/commands';
 
 interface UseCanvasReturn {
   shapes: CanvasObject[];
@@ -27,6 +35,15 @@ interface UseCanvasReturn {
   updateActiveText: (shapeId: string, text: string) => void;
   markShapeActive: (shapeId: string, x: number, y: number, type?: 'drag' | 'edit') => void;
   markShapeInactive: (shapeId: string) => void;
+  // History operations
+  undo: () => string | null;
+  redo: () => string | null;
+  canUndo: boolean;
+  canRedo: boolean;
+  // Command-based operations for undo/redo support
+  createShapeWithHistory: (x: number, y: number, createdBy: string, type?: 'rectangle' | 'circle' | 'triangle' | 'text', color?: string) => CanvasObject;
+  deleteShapesWithHistory: (ids: string[]) => void;
+  updateShapesWithHistory: (ids: string[], oldStates: Map<string, Partial<CanvasObject>>, newStates: Map<string, Partial<CanvasObject>>) => void;
 }
 
 interface UseCanvasProps {
@@ -51,6 +68,9 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
     userName: user.name,
     userColor: user.color,
   });
+
+  // History system for undo/redo
+  const history = useHistory();
   
   // Track if we're in the initial load to avoid saving remote changes back to Firestore
   const isInitialLoadRef = useRef(true);
@@ -424,6 +444,170 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
     return shapes.find(shape => shape.id === id);
   }, [shapes]);
 
+  // ============ Command-wrapped functions for undo/redo ============
+
+  /**
+   * Helper to add shape to state (for commands)
+   */
+  const addShapeToState = useCallback((shape: CanvasObject) => {
+    locallyCreatedRef.current.add(shape.id);
+    setFirestoreShapes(prev => [...prev, shape]);
+    saveObject(shape).catch((error) => {
+      console.error('Failed to save shape:', error);
+      setFirestoreShapes(prev => prev.filter(s => s.id !== shape.id));
+      locallyCreatedRef.current.delete(shape.id);
+    });
+  }, [saveObject]);
+
+  /**
+   * Helper to add multiple shapes to state (for commands)
+   */
+  const addShapesToState = useCallback((shapes: CanvasObject[]) => {
+    shapes.forEach(shape => locallyCreatedRef.current.add(shape.id));
+    setFirestoreShapes(prev => [...prev, ...shapes]);
+    Promise.all(shapes.map(shape => saveObject(shape))).catch((error) => {
+      console.error('Failed to save shapes:', error);
+      const shapeIds = new Set(shapes.map(s => s.id));
+      setFirestoreShapes(prev => prev.filter(s => !shapeIds.has(s.id)));
+      shapes.forEach(shape => locallyCreatedRef.current.delete(shape.id));
+    });
+  }, [saveObject]);
+
+  /**
+   * Helper to remove shape from state (for commands)
+   */
+  const removeShapeFromState = useCallback((id: string) => {
+    setFirestoreShapes(prev => prev.filter(shape => shape.id !== id));
+    setSelectedShapeIds(prev => prev.filter(selectedId => selectedId !== id));
+    locallyCreatedRef.current.delete(id);
+    markShapeInactive(id);
+    deleteObject(id).catch((error) => {
+      console.error('Failed to delete shape:', error);
+    });
+  }, [deleteObject, markShapeInactive]);
+
+  /**
+   * Helper to remove multiple shapes from state (for commands)
+   */
+  const removeShapesFromState = useCallback((ids: string[]) => {
+    setFirestoreShapes(prev => prev.filter(shape => !ids.includes(shape.id)));
+    setSelectedShapeIds(prev => prev.filter(selectedId => !ids.includes(selectedId)));
+    ids.forEach(id => {
+      locallyCreatedRef.current.delete(id);
+      markShapeInactive(id);
+    });
+    Promise.all(ids.map(id => deleteObject(id))).catch((error) => {
+      console.error('Failed to delete shapes:', error);
+    });
+  }, [deleteObject, markShapeInactive]);
+
+  /**
+   * Helper to update shapes in state (for commands)
+   */
+  const updateShapesInState = useCallback((updates: Map<string, Partial<CanvasObject>>) => {
+    setFirestoreShapes(prev => prev.map(shape => {
+      const update = updates.get(shape.id);
+      if (update) {
+        return { ...shape, ...update, lastModifiedAt: Date.now() };
+      }
+      return shape;
+    }));
+
+    // Save updates to Firestore
+    Array.from(updates.entries()).forEach(([id, update]) => {
+      updateObject(id, update).catch((error) => {
+        console.error('Failed to update shape:', error);
+      });
+    });
+  }, [updateObject]);
+
+  /**
+   * Create shape with undo/redo support
+   */
+  const createShapeWithHistory = useCallback((
+    x: number,
+    y: number,
+    createdBy: string,
+    type: 'rectangle' | 'circle' | 'triangle' | 'text' = 'rectangle',
+    color?: string
+  ): CanvasObject => {
+    // Generate the shape without saving it yet
+    const baseShape = {
+      id: crypto.randomUUID(),
+      type,
+      x,
+      y,
+      fill: color || generateRandomColor(),
+      rotation: 0,
+      zIndex: 0,
+      createdBy,
+      lastModifiedBy: createdBy,
+      lastModifiedAt: Date.now(),
+    };
+
+    let newShape: CanvasObject;
+
+    // Set type-specific properties
+    switch (type) {
+      case 'circle':
+        newShape = { ...baseShape, radius: 50 } as CanvasObject;
+        break;
+      case 'triangle':
+        newShape = { ...baseShape, width: 100, height: 100 } as CanvasObject;
+        break;
+      case 'text':
+        newShape = { ...baseShape, text: 'Text', fontSize: 24, fontStyle: 'normal', textAlign: 'left' } as CanvasObject;
+        break;
+      case 'rectangle':
+      default:
+        newShape = { ...baseShape, width: 150, height: 100 } as CanvasObject;
+        break;
+    }
+
+    // Execute command through history
+    const command = new CreateShapeCommand(
+      newShape,
+      addShapeToState,
+      removeShapeFromState
+    );
+    history.executeCommand(command);
+
+    return newShape;
+  }, [addShapeToState, removeShapeFromState, history]);
+
+  /**
+   * Delete shapes with undo/redo support
+   */
+  const deleteShapesWithHistory = useCallback((ids: string[]) => {
+    const shapesToDelete = firestoreShapes.filter(shape => ids.includes(shape.id));
+    
+    if (shapesToDelete.length === 0) return;
+
+    const command = new DeleteShapeCommand(
+      shapesToDelete,
+      addShapesToState,
+      removeShapesFromState
+    );
+    history.executeCommand(command);
+  }, [firestoreShapes, addShapesToState, removeShapesFromState, history]);
+
+  /**
+   * Update shapes with undo/redo support
+   */
+  const updateShapesWithHistory = useCallback((
+    ids: string[],
+    oldStates: Map<string, Partial<CanvasObject>>,
+    newStates: Map<string, Partial<CanvasObject>>
+  ) => {
+    const command = new UpdateShapeCommand(
+      ids,
+      oldStates,
+      newStates,
+      updateShapesInState
+    );
+    history.executeCommand(command);
+  }, [updateShapesInState, history]);
+
   return {
     shapes,
     selectedShapeIds,
@@ -446,6 +630,15 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
     updateActiveText,
     markShapeActive,
     markShapeInactive,
+    // History operations
+    undo: history.undo,
+    redo: history.redo,
+    canUndo: history.canUndo,
+    canRedo: history.canRedo,
+    // Command-based operations
+    createShapeWithHistory,
+    deleteShapesWithHistory,
+    updateShapesWithHistory,
   };
 }
 

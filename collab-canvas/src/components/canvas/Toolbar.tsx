@@ -71,6 +71,15 @@ export default function Toolbar({ user, onSignOut, mode, onModeChange, selectedC
               <path d="M6 4h8v2h-3v10h-2V6H6V4z" />
             </svg>
           </button>
+          <button 
+            className={`tool-button ${mode === 'comment' ? 'active' : ''}`}
+            title="Comment Tool" 
+            onClick={() => handleToolClick('comment')}
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M4 4h12v10H9l-3 3v-3H4V4z" />
+            </svg>
+          </button>
           <div className="toolbar-divider"></div>
           <button 
             className={`tool-button color-button ${showColorPicker ? 'active' : ''}`}
