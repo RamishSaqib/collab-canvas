@@ -109,7 +109,9 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     user.id,
     createShapeWithHistory,
     updateShapesWithHistory,
-    deleteShapesWithHistory
+    deleteShapesWithHistory,
+    stagePosition,
+    stageScale
   );
 
   // Expose AI command handler via window for App to access

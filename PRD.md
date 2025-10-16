@@ -697,9 +697,33 @@ Focus: Nail the core designer experience and multiplayer sync. Everything else i
 
 ---
 
+### PR #18: Canvas Coordinates & Text Polish 🎯
+**Goal:** Add coordinate display and improve text editing UX
+
+**Summary:**
+Improve canvas usability with coordinate display for precise positioning and cleaner text editing experience without distracting visual effects.
+
+**Key Features:**
+1. **Coordinate Display System**
+   - Show selected shape position in bottom-right corner
+   - Grid origin at canvas center (0, 0)
+   - Format: "Position: (x, y)"
+   - Updates in real-time during drag
+
+2. **Text Editing Polish**
+   - Reduce stroke width by 50% (3px → 1.5px)
+   - Cleaner, less intrusive selection indicator
+   - Maintains visibility while reducing visual noise
+
+**Achievement Target:**
+- Professional coordinate system matching industry standards (Figma, Illustrator)
+- Distraction-free text editing experience
+
+---
+
 ## AI Canvas Agent Features
 
-### PR #18: AI Canvas Agent with Natural Language Commands (In Progress)
+### PR #19: AI Canvas Agent with Natural Language Commands (In Progress)
 **Goal:** Achieve EXCELLENT rating (23-25/25) for AI Canvas Agent category
 
 **Target Score:**

@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { parseCommand } from '../lib/ai-provider';
+import { gridToKonva, CANVAS_WIDTH, CANVAS_HEIGHT } from '../utils/coordinates';
 import type { AICommand, AIResponse, CanvasObject, ShapeQuery } from '../lib/types';
 
 /**
@@ -12,7 +13,9 @@ export function useAIAgent(
   userId: string,
   createShapeWithHistory: (x: number, y: number, createdBy: string, type?: 'rectangle' | 'circle' | 'triangle' | 'text', color?: string) => CanvasObject,
   updateShapesWithHistory: (ids: string[], oldStates: Map<string, Partial<CanvasObject>>, newStates: Map<string, Partial<CanvasObject>>) => void,
-  deleteShapesWithHistory: (ids: string[]) => void
+  deleteShapesWithHistory: (ids: string[]) => void,
+  stagePos?: { x: number; y: number },
+  stageScale?: number
 ) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastCommand, setLastCommand] = useState<string | null>(null);
@@ -129,9 +132,26 @@ export function useAIAgent(
       return false;
     }
 
-    // Ensure we have valid coordinates
-    const x = typeof entities.position?.x === 'number' ? entities.position.x : 400;
-    const y = typeof entities.position?.y === 'number' ? entities.position.y : 300;
+    // Calculate position
+    let x: number;
+    let y: number;
+
+    if (entities.position && typeof entities.position.x === 'number' && typeof entities.position.y === 'number') {
+      // AI provided grid coordinates - convert to Konva coordinates
+      const konvaPos = gridToKonva(entities.position.x, entities.position.y);
+      x = konvaPos.x;
+      y = konvaPos.y;
+    } else {
+      // No position provided - use viewport center (at 100% zoom)
+      // Calculate the center of the current viewport
+      const scale = stageScale || 1;
+      const posX = stagePos?.x || 0;
+      const posY = stagePos?.y || 0;
+      
+      // Viewport center in stage coordinates
+      x = (CANVAS_WIDTH / 2 - posX) / scale;
+      y = (CANVAS_HEIGHT / 2 - posY) / scale;
+    }
 
     // Create shape using the standard function (maintains undo/redo support)
     const newShape = createShapeWithHistory(

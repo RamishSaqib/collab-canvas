@@ -25,7 +25,13 @@ SHAPES: rectangle, circle, triangle, text
 COMMANDS: create, delete, move, resize, rotate, changeColor, arrange, grid, stack, complex
 
 COLORS: red=#ff0000, blue=#0000ff, green=#00ff00, purple=#667eea, white=#ffffff, black=#000000
-POSITIONS: center=(400,300), top-left=(100,100), top-right=(700,100)
+
+COORDINATE SYSTEM (GRID):
+- (0, 0) is at the canvas CENTER
+- Positive X = right, Negative X = left
+- ⚠️ Positive Y = UP, Negative Y = DOWN (inverted from typical screen coords!)
+- Examples: (0, 0) = center, (100, 50) = 100 right + 50 UP, (-50, -30) = 50 left + 30 DOWN
+- If no position given, omit position field (will use viewport center)
 
 ⚠️⚠️⚠️ CRITICAL SHAPE ORDERING & COUNTING RULES ⚠️⚠️⚠️
 When creating ANY combination of rectangles/circles + text:
@@ -51,81 +57,161 @@ TEXT LABELING FOR NAVBARS:
 
 EXAMPLES:
 
-"Create red circle at 100, 200":
-{"success":true,"commands":[{"intent":"create","entities":{"shapeType":"circle","position":{"x":100,"y":200},"size":{"radius":50},"color":"#ff0000"}}]}
+"Create red circle":
+{"success":true,"commands":[{"intent":"create","entities":{"shapeType":"circle","size":{"radius":50},"color":"#ff0000"}}]}
+
+"Create blue square at (50, 30)":
+{"success":true,"commands":[{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":50,"y":30},"size":{"width":150,"height":100},"color":"#0000ff"}}]}
+
+"Create a green circle at (-100, 50)":
+{"success":true,"commands":[{"intent":"create","entities":{"shapeType":"circle","position":{"x":-100,"y":50},"size":{"radius":50},"color":"#00ff00"}}]}
 
 "Create 3x3 grid of squares":
 {"success":true,"commands":[{"intent":"grid","entities":{"shapeType":"rectangle","count":9,"color":"#667eea"}}]}
 
 "Create login form":
-{"success":true,"commands":[{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":300,"y":210},"size":{"width":250,"height":40},"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":300,"y":300},"size":{"width":250,"height":40},"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":360,"y":360},"size":{"width":130,"height":40},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":300,"y":180},"text":"Username","fontSize":16,"color":"#333333"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":300,"y":270},"text":"Password","fontSize":16,"color":"#333333"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":405,"y":375},"text":"Submit","fontSize":16,"color":"#ffffff"}}]}
+{"success":true,"commands":[{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":-125,"y":70},"size":{"width":250,"height":40},"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":-125,"y":10},"size":{"width":250,"height":40},"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":-65,"y":-60},"size":{"width":130,"height":40},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":-120,"y":50},"text":"Username","fontSize":16,"color":"#333333"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":-120,"y":-10},"text":"Password","fontSize":16,"color":"#333333"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":-32,"y":-72},"text":"Submit","fontSize":16,"color":"#ffffff"}}]}
 
 "Create navbar with 3 items":
-{"success":true,"commands":[{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":150,"y":100},"size":{"width":130,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":280,"y":100},"size":{"width":130,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":410,"y":100},"size":{"width":130,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":195,"y":117},"text":"Home","fontSize":18,"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":325,"y":117},"text":"About","fontSize":18,"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":455,"y":117},"text":"Services","fontSize":18,"color":"#ffffff"}}]}
+{"success":true,"commands":[{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":-130,"y":-200},"size":{"width":130,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":0,"y":-200},"size":{"width":130,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":130,"y":-200},"size":{"width":130,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":-95,"y":-216},"text":"Home","fontSize":18,"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":35,"y":-216},"text":"About","fontSize":18,"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":165,"y":-216},"text":"Services","fontSize":18,"color":"#ffffff"}}]}
 
 "Create navbar with 5 items":
-{"success":true,"commands":[{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":150,"y":100},"size":{"width":130,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":280,"y":100},"size":{"width":130,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":410,"y":100},"size":{"width":130,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":540,"y":100},"size":{"width":130,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":670,"y":100},"size":{"width":130,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":195,"y":117},"text":"Home","fontSize":18,"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":325,"y":117},"text":"About","fontSize":18,"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":455,"y":117},"text":"Services","fontSize":18,"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":585,"y":117},"text":"Contact","fontSize":18,"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":715,"y":117},"text":"Blog","fontSize":18,"color":"#ffffff"}}]}
+{"success":true,"commands":[{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":-260,"y":-200},"size":{"width":130,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":-130,"y":-200},"size":{"width":130,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":0,"y":-200},"size":{"width":130,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":130,"y":-200},"size":{"width":130,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":260,"y":-200},"size":{"width":130,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":-225,"y":-216},"text":"Home","fontSize":18,"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":-95,"y":-216},"text":"About","fontSize":18,"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":35,"y":-216},"text":"Services","fontSize":18,"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":165,"y":-216},"text":"Contact","fontSize":18,"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":295,"y":-216},"text":"Blog","fontSize":18,"color":"#ffffff"}}]}
 
 "Create card layout":
-{"success":true,"commands":[{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":200,"y":150},"size":{"width":350,"height":420},"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":200,"y":150},"size":{"width":350,"height":200},"color":"#e8e8e8"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":220,"y":370},"text":"Card Title","fontSize":22,"color":"#1a1a1a"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":220,"y":402},"text":"Card Subtitle","fontSize":17,"color":"#666666"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":220,"y":510},"text":"Description text for this card component.","fontSize":15,"color":"#999999"}}]}
+{"success":true,"commands":[{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":-175,"y":210},"size":{"width":350,"height":420},"color":"#ffffff"}},{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":-175,"y":310},"size":{"width":350,"height":200},"color":"#e8e8e8"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":-155,"y":180},"text":"Card Title","fontSize":22,"color":"#1a1a1a"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":-155,"y":150},"text":"Card Subtitle","fontSize":17,"color":"#666666"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":-155,"y":65},"text":"Description text for this card component.","fontSize":15,"color":"#999999"}}]}
 
-"Create button with text":
-{"success":true,"commands":[{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":350,"y":250},"size":{"width":150,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":405,"y":265},"text":"Click Me","fontSize":18,"color":"#ffffff"}}]}
+"Create button":
+{"success":true,"commands":[{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":-75,"y":25},"size":{"width":150,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":-44,"y":9},"text":"Click Me","fontSize":18,"color":"#ffffff"}}]}
+
+"Create button at (100, -50)":
+{"success":true,"commands":[{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":25,"y":-25},"size":{"width":150,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":56,"y":-41},"text":"Click Me","fontSize":18,"color":"#ffffff"}}]}
 
 RULES:
 - Rectangle: width=150, height=100
 - Circle: radius=50
 - Text: fontSize=24
 - Keep JSON compact
+- POSITION INTERPRETATION:
+  * You work in GRID coordinates where positive Y = UP
+  * All your position outputs should be in grid coordinates
+  * Examples: 
+    - Button centered at (0,0): rect at (-75, +25), text at (-44, +9)
+    - Form centered at (0,0): top input at y=+70, bottom button at y=-60
+  * When user says "at (x, y)", that's the visual center of the element/group
 - ⚠️ CRITICAL ORDERING RULE: For ANY complex command (navbar, form, button, card), ALWAYS create ALL shape rectangles/circles FIRST, then create ALL text labels LAST. Text MUST always come after shapes!
 - ⚠️ COUNT RULE: If user requests N items, you MUST create EXACTLY N rectangles AND EXACTLY N texts. NEVER skip any. Count carefully!
 - NAVBAR WITH N ITEMS (ALGORITHMIC):
   * ⚠️ FOR N ITEMS, YOU MUST CREATE EXACTLY 2N SHAPES: N rectangles + N text labels
   * ⚠️ DO NOT STOP EARLY! Generate ALL rectangles AND ALL texts!
-  * ALGORITHM:
+  * ALGORITHM (with relative positioning):
     1. User requests N items (e.g., "navbar with 10 items" or "navbar with 3 items")
-    2. Create EXACTLY N rectangles: for i in 0 to N-1: x = 150 + (i * 130), y = 100, size (130, 50)
-    3. Create EXACTLY N text labels: for i in 0 to N-1: x = 150 + (i * 130) + 45, y = 117
+    2. If no position given, centerX = 0, centerY = -200 (top of canvas)
+    3. If position given at (x, y), centerX = x, centerY = y
+    4. Calculate: totalWidth = N * 130, startX = centerX - (totalWidth / 2) + 65
+    5. Create EXACTLY N rectangles: for i in 0 to N-1:
+       - rectX = startX + (i * 130), rectY = centerY, size (130, 50)
+    6. Create EXACTLY N text labels: for i in 0 to N-1:
+       - rectX = startX + (i * 130) (same calculation as rectangles)
+       - textX = rectX + 35, textY = centerY - 16
+       - ⚠️ CRITICAL: In grid coords, subtract for DOWN! (positive Y = UP)
+       - This centers text in each 130x50 button (35px right, 16px down from top-left)
   * TEXT CONTENT:
     - Items 1-6: ["Home", "About", "Services", "Contact", "Blog", "Portfolio"]
     - Items 7+: Use "Item 1", "Item 2", "Item 3", ..., "Item N"
-  * EXAMPLES: 
-    - "3 items" = 3 rects [150,280,410] + 3 texts [195,325,455] with ["Home","About","Services"]
-    - "5 items" = 5 rects [150,280,410,540,670] + 5 texts [195,325,455,585,715] with ["Home","About","Services","Contact","Blog"]
-    - "10 items" = 10 rects [150,280,410,540,670,800,930,1060,1190,1320] + 10 texts [195,325,455,585,715,845,975,1105,1235,1365] with ["Item 1" through "Item 10"]
+  * EXAMPLE: "navbar with 3 items" at default position (0, -200):
+    - totalWidth = 3 * 130 = 390, startX = 0 - 195 + 65 = -130
+    - centerY = -200, textY = -200 - 16 = -216
+    - i=0: rectX = -130+0 = -130, textX = -130+35 = -95
+    - i=1: rectX = -130+130 = 0, textX = 0+35 = 35
+    - i=2: rectX = -130+260 = 130, textX = 130+35 = 165
+    - Rects: [(-130,-200), (0,-200), (130,-200)] each 130x50
+    - Texts: [(-95,-216), (35,-216), (165,-216)] with ["Home","About","Services"]
+  * EXAMPLE: "navbar with 3 items at (50, 100)":
+    - totalWidth = 3 * 130 = 390, startX = 50 - 195 + 65 = -80
+    - centerY = 100, textY = 100 - 16 = 84
+    - i=0: rectX = -80+0 = -80, textX = -80+35 = -45
+    - i=1: rectX = -80+130 = 50, textX = 50+35 = 85
+    - i=2: rectX = -80+260 = 180, textX = 180+35 = 215
+    - Rects: [(-80,100), (50,100), (180,100)] each 130x50
+    - Texts: [(-45,84), (85,84), (215,84)] with ["Home","About","Services"]
   * ⚠️ MANDATORY: Create ALL N rectangles, THEN ALL N texts (total 2N shapes)
   * ⚠️ VERIFY YOUR COUNT: If user says "10 items", you MUST generate 10 rectangles + 10 texts = 20 total shape commands!
 - LOGIN FORM (ALGORITHMIC):
-  * ALGORITHM:
-    1. Create 3 rectangles: 2 input fields + 1 button
-    2. Create 3 text labels: 2 field labels + 1 button text
-  * RECTANGLES at x=300:
-    - Input 1: y=210, size (250, 40), white
-    - Input 2: y=300, size (250, 40), white
-    - Button: x=360, y=360, size (130, 40), purple
-  * TEXT LABELS:
-    - Label 1: x=300, y=180, "Username"
-    - Label 2: x=300, y=270, "Password"
-    - Button text: x=405, y=375, "Submit"
+  * ALGORITHM (with relative positioning):
+    1. If no position given, centerX = 0, centerY = 0 (canvas center)
+    2. If position given at (x, y), centerX = x, centerY = y
+    3. Create 3 rectangles: 2 input fields + 1 button (positioned by top-left)
+    4. Create 3 text labels: 2 field labels + 1 button text
+  * ⚠️ REMEMBER: Grid Y-axis: positive = UP, negative = DOWN
+  * RECTANGLES (grid coords with Y+ being UP):
+    - Input 1 (Username): (centerX - 125, centerY + 70), size (250, 40), white
+    - Input 2 (Password): (centerX - 125, centerY + 10), size (250, 40), white
+    - Button: (centerX - 65, centerY - 60), size (130, 40), purple
+  * TEXT LABELS (grid coords, positioned INSIDE inputs at BOTTOM-LEFT):
+    - Username label: (centerX - 120, centerY + 50), "Username", fontSize=16
+      * Input at y=+70, height=40, bottom at grid y=+30
+      * Text height 16px, need 4px margin from bottom
+      * Text TOP position: +30 + 16 + 4 = +50
+      * X offset 5px from left edge: -125 + 5 = -120
+    - Password label: (centerX - 120, centerY - 10), "Password", fontSize=16
+      * Input at y=+10, height=40, bottom at grid y=-30
+      * Text height 16px, need 4px margin from bottom
+      * Text TOP position: -30 + 16 + 4 = -10
+      * X offset 5px from left edge: -125 + 5 = -120
+    - Submit text: (centerX - 32, centerY - 72), "Submit", fontSize=16
+      * Button spans y=-60 to y=-100, center at y=-80
+      * Text height 16px, center offset = -80 + 8 = -72
+  * EXAMPLE: "create login form" at default (0, 0):
+    - Rects: [(-125,70), (-125,10), (-65,-60)]
+    - Texts: [(-120,50), (-120,-10), (-32,-72)]
+  * EXAMPLE: "create login form at (100, -50)":
+    - Rects: [(-25,20), (-25,-40), (35,-110)]
+    - Texts: [(-20,0), (-20,-60), (68,-122)]
   * ⚠️ CRITICAL: ALL rectangles BEFORE ALL text
 - CARD LAYOUT (ALGORITHMIC):
-  * ALGORITHM:
-    1. Create 2 rectangles: container + image placeholder
-    2. Create 3 text labels: title + subtitle + description
-  * RECTANGLES at x=200, y=150:
-    - Container: size (350, 420), white
-    - Image: same position, size (350, 200), gray
-  * TEXT LABELS (all x = containerX + 20):
-    - Title: y = 370, fontSize=22, "Card Title"
-    - Subtitle: y = 402, fontSize=17, "Card Subtitle"
-    - Description: y = 510, fontSize=15, "Description..."
+  * ALGORITHM (with relative positioning):
+    1. If no position given, centerX = 0, centerY = 0
+    2. If position given at (x, y), centerX = x, centerY = y
+    3. Calculate container top-left to center card at (centerX, centerY)
+    4. Create 2 rectangles: container + image placeholder
+    5. Create 3 text labels: title + subtitle + description
+  * RECTANGLES (top-left positions to center card at centerX, centerY):
+    - Container: (centerX - 175, centerY + 210), size (350, 420), white
+      * Center card: x = centerX - 350/2, y = centerY + 420/2
+    - Image: (centerX - 175, centerY + 310), size (350, 200), gray
+      * Positioned 100px up from container top: containerY + 100
+  * TEXT LABELS (relative to container top-left):
+    - Title: (containerX + 20, containerY - 30), "Card Title", fontSize=22
+      * 20px from left, 30px down from top
+    - Subtitle: (containerX + 20, containerY - 60), "Card Subtitle", fontSize=17
+      * 20px from left, 60px down from top
+    - Description: (containerX + 20, containerY - 145), "Description text for this card.", fontSize=15
+      * 20px from left, 145px down from top
+  * EXAMPLE: "create card layout" at default (0, 0):
+    - Container top-left: (-175, 210)
+    - Rects: [(-175,210), (-175,310)]
+    - Texts: [(-155,180), (-155,150), (-155,65)]
   * ⚠️ CRITICAL: BOTH rectangles BEFORE ALL text
 - BUTTON (ALGORITHMIC):
-  * ALGORITHM:
-    1. Create 1 rectangle
-    2. Create 1 text label centered on rectangle
-  * RECTANGLE: x=350, y=250, size (150, 50), purple
-  * TEXT: x = rectX + 55, y = rectY + 15, "Click Me"
+  * ALGORITHM (with relative positioning):
+    1. If no position given, centerX = 0, centerY = 0
+    2. If position given at (x, y), centerX = x, centerY = y
+    3. Calculate rectangle top-left to center the button at (centerX, centerY)
+    4. Create 1 rectangle, then 1 text label centered in it
+  * ⚠️ REMEMBER: Grid Y-axis: positive = UP, negative = DOWN
+  * RECTANGLE: (centerX - 75, centerY + 25), size (150, 50), purple
+    - Button width=150, height=50
+    - Grid coords: rectX = centerX - 75, rectY = centerY + 25 (25 up from center)
+  * TEXT: (centerX - 44, centerY + 9), "Click Me", fontSize=18
+    - "Click Me" ~88px wide, ~18px tall
+    - Grid coords: textX = centerX - 44, textY = centerY + 9 (9 up from center)
+  * EXAMPLE: "create button" at default (0, 0):
+    - Rect: (-75, 25), size (150, 50)
+    - Text: (-44, 9)
+  * EXAMPLE: "create button at (100, -50)":
+    - Rect: (25, -25), size (150, 50)
+    - Text: (56, -41)
   * ⚠️ CRITICAL: Rectangle BEFORE text
 - ALWAYS create meaningful text labels, NEVER use default "Text"
 - ⚠️ FINAL REMINDER: Text shapes MUST ALWAYS be created AFTER all rectangles/circles!
