@@ -55,9 +55,11 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     selectedShapeIds,
     activeShapes,
     createShape,
+    batchCreateShapes,
     updateShape,
     updateShapes,
     deleteShapes,
+    batchDeleteShapes,
     duplicateShapes,
     selectShapes,
     toggleShapeSelection,
@@ -647,6 +649,49 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     }
   }, [selectedShapeIds, selectedColor, updateShapes, user.id, onCloseColorPicker]);
 
+  // Performance test: Generate test shapes (optimized with batch operations)
+  const generateTestShapes = useCallback(async (count: number) => {
+    const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'];
+    const types = ['rectangle', 'circle', 'triangle', 'text'] as const;
+    
+    console.log(`🧪 Generating ${count} test shapes...`);
+    
+    // Create all shapes data at once
+    const shapesData = [];
+    for (let i = 0; i < count; i++) {
+      const x = Math.random() * 2000 - 500;
+      const y = Math.random() * 2000 - 500;
+      const type = types[Math.floor(Math.random() * types.length)];
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      
+      const baseShape = {
+        type,
+        x,
+        y,
+        fill: color,
+        rotation: 0,
+        zIndex: 0,
+        createdBy: user.id,
+        lastModifiedBy: user.id,
+      };
+
+      // Add type-specific properties
+      if (type === 'circle') {
+        shapesData.push({ ...baseShape, radius: 50 });
+      } else if (type === 'triangle') {
+        shapesData.push({ ...baseShape, width: 100, height: 100 });
+      } else if (type === 'text') {
+        shapesData.push({ ...baseShape, text: 'Text', fontSize: 24, fontStyle: 'normal' as const, textAlign: 'left' as const });
+      } else {
+        shapesData.push({ ...baseShape, width: 150, height: 100 });
+      }
+    }
+    
+    // Batch create all shapes at once
+    await batchCreateShapes(shapesData as any);
+    console.log(`✅ Generated ${count} shapes for performance testing`);
+  }, [batchCreateShapes, user.id]);
+
   // Handle transform end (resize/rotate)
   const handleTransformEnd = useCallback((e: Konva.KonvaEventObject<Event>) => {
     const node = e.target;
@@ -757,8 +802,27 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
           <Transformer
             ref={transformerRef}
             onTransformEnd={handleTransformEnd}
-            rotateAnchorOffset={30}
+            rotateAnchorOffset={35}
             rotateAnchorCursor="grab"
+            anchorSize={10}
+            anchorFill="#667eea"
+            anchorStroke="#ffffff"
+            anchorStrokeWidth={2}
+            anchorCornerRadius={5}
+            rotateEnabled={true}
+            anchorStyleFunc={(anchor) => {
+              // Make rotation anchor circular and more prominent
+              if (anchor.hasName('rotater')) {
+                anchor.fill('#4F46E5');
+                anchor.stroke('#ffffff');
+                anchor.strokeWidth(3);
+                anchor.width(16);
+                anchor.height(16);
+                anchor.offsetX(8);
+                anchor.offsetY(8);
+                anchor.cornerRadius(8); // Make it circular
+              }
+            }}
             boundBoxFunc={(oldBox, newBox) => {
               // Limit resize to minimum 5x5 pixels
               if (newBox.width < 5 || newBox.height < 5) {
@@ -1005,6 +1069,39 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
           onItalicToggle={handleItalicToggle}
         />
       )}
+
+      {/* Performance Testing Panel */}
+      <div className="perf-test-panel">
+        <div className="perf-test-title">Performance Testing</div>
+        <div className="perf-test-buttons">
+          <button 
+            className="perf-test-btn"
+            onClick={() => generateTestShapes(100)}
+            title="Add 100 shapes"
+          >
+            +100
+          </button>
+          <button 
+            className="perf-test-btn"
+            onClick={() => generateTestShapes(500)}
+            title="Add 500 shapes"
+          >
+            +500
+          </button>
+          <button 
+            className="perf-test-btn danger"
+            onClick={async () => {
+              if (window.confirm(`Delete all ${shapes.length} shapes?`)) {
+                const allIds = shapes.map(s => s.id);
+                await batchDeleteShapes(allIds);
+              }
+            }}
+            title="Clear all shapes"
+          >
+            Clear All
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

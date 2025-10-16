@@ -6,7 +6,8 @@ import {
   updateDoc, 
   deleteDoc, 
   onSnapshot, 
-  query
+  query,
+  writeBatch
 } from 'firebase/firestore';
 import type { Unsubscribe } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -247,6 +248,57 @@ export function useFirestore() {
     return unsubscribe;
   };
 
+  /**
+   * Batch save multiple objects at once
+   * More efficient for bulk operations like test data generation
+   */
+  const batchSaveObjects = async (objects: CanvasObject[]) => {
+    if (!db) {
+      throw new Error('Firebase not initialized');
+    }
+
+    const batch = writeBatch(db);
+    const objectsCol = getObjectsCollection();
+
+    objects.forEach(obj => {
+      const docRef = doc(objectsCol, obj.id);
+      batch.set(docRef, obj);
+    });
+
+    await batch.commit();
+    console.log(`✅ Batch saved ${objects.length} objects`);
+  };
+
+  /**
+   * Batch delete multiple objects at once
+   * More efficient for bulk delete operations
+   */
+  const batchDeleteObjects = async (objectIds: string[]) => {
+    if (!db) {
+      throw new Error('Firebase not initialized');
+    }
+
+    // Firestore batches can only handle 500 operations at a time
+    const BATCH_SIZE = 500;
+    const batches = [];
+
+    for (let i = 0; i < objectIds.length; i += BATCH_SIZE) {
+      const batchIds = objectIds.slice(i, i + BATCH_SIZE);
+      const batch = writeBatch(db);
+      const objectsCol = getObjectsCollection();
+
+      batchIds.forEach(id => {
+        const docRef = doc(objectsCol, id);
+        batch.delete(docRef);
+      });
+
+      batches.push(batch.commit());
+    }
+
+    await Promise.all(batches);
+    console.log(`✅ Batch deleted ${objectIds.length} objects`);
+  };
+
   // Process queued operations when connection is restored
   useEffect(() => {
     if (isOnline) {
@@ -261,6 +313,8 @@ export function useFirestore() {
     saveObject,
     updateObject,
     deleteObject,
+    batchSaveObjects,
+    batchDeleteObjects,
     subscribeToObjects,
     flushUpdate,
     flushAllUpdates,

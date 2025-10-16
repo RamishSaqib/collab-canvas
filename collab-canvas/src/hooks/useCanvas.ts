@@ -10,10 +10,12 @@ interface UseCanvasReturn {
   selectedShapeIds: string[];
   activeShapes: Map<string, ActiveShape>;
   createShape: (x: number, y: number, createdBy: string, type?: 'rectangle' | 'circle' | 'triangle' | 'text', color?: string) => CanvasObject;
+  batchCreateShapes: (shapes: Omit<CanvasObject, 'id' | 'lastModifiedAt'>[]) => Promise<void>;
   updateShape: (id: string, updates: Partial<CanvasObject>) => void;
   updateShapes: (ids: string[], updates: Partial<CanvasObject>) => void;
   deleteShape: (id: string) => void;
   deleteShapes: (ids: string[]) => void;
+  batchDeleteShapes: (ids: string[]) => Promise<void>;
   duplicateShapes: (ids: string[], createdBy: string) => CanvasObject[];
   selectShapes: (ids: string[]) => void;
   toggleShapeSelection: (id: string) => void;
@@ -36,7 +38,7 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
   const [activeShapes, setActiveShapes] = useState<Map<string, ActiveShape>>(new Map());
   const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([]);
   
-  const { saveObject, updateObject, deleteObject, subscribeToObjects, flushAllUpdates } = useFirestore();
+  const { saveObject, updateObject, deleteObject, batchSaveObjects, batchDeleteObjects, subscribeToObjects, flushAllUpdates } = useFirestore();
   const {
     updateActivePosition,
     updateActiveText,
@@ -227,6 +229,55 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
     return newShape;
   }, [saveObject]);
 
+  // Batch create multiple shapes (optimized for performance testing)
+  const batchCreateShapes = useCallback(async (shapesData: Omit<CanvasObject, 'id' | 'lastModifiedAt'>[]) => {
+    const newShapes: CanvasObject[] = shapesData.map(data => ({
+      ...data,
+      id: crypto.randomUUID(),
+      lastModifiedAt: Date.now(),
+    }));
+
+    console.log(`Creating ${newShapes.length} shapes in batch...`);
+
+    // Mark all as locally created
+    newShapes.forEach(shape => {
+      locallyCreatedRef.current.add(shape.id);
+    });
+
+    // Optimistic update - add all to state immediately
+    setFirestoreShapes(prev => [...prev, ...newShapes]);
+
+    // Save all to Firestore in a single batch operation
+    try {
+      await batchSaveObjects(newShapes);
+      console.log(`✅ Successfully created ${newShapes.length} shapes`);
+    } catch (error) {
+      console.error('Failed to batch save shapes:', error);
+      // Rollback on error
+      const newShapeIds = new Set(newShapes.map(s => s.id));
+      setFirestoreShapes(prev => prev.filter(s => !newShapeIds.has(s.id)));
+      newShapes.forEach(shape => locallyCreatedRef.current.delete(shape.id));
+    }
+  }, [batchSaveObjects]);
+
+  // Batch delete multiple shapes (optimized for bulk delete)
+  const batchDeleteShapes = useCallback(async (ids: string[]) => {
+    console.log(`Deleting ${ids.length} shapes in batch...`);
+
+    // Optimistic update - remove from state immediately
+    setFirestoreShapes(prev => prev.filter(shape => !ids.includes(shape.id)));
+
+    // Delete from Firestore in batch
+    try {
+      await batchDeleteObjects(ids);
+      console.log(`✅ Successfully deleted ${ids.length} shapes`);
+    } catch (error) {
+      console.error('Failed to batch delete shapes:', error);
+      // Note: Rollback would require fetching the deleted shapes again
+      // For performance testing, we'll accept this edge case
+    }
+  }, [batchDeleteObjects]);
+
   // Update an existing shape
   const updateShape = useCallback((id: string, updates: Partial<CanvasObject>) => {
     // Optimistic update - update Firestore shapes immediately
@@ -378,10 +429,12 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
     selectedShapeIds,
     activeShapes,
     createShape,
+    batchCreateShapes,
     updateShape,
     updateShapes,
     deleteShape,
     deleteShapes,
+    batchDeleteShapes,
     duplicateShapes,
     selectShapes,
     toggleShapeSelection,

@@ -318,3 +318,76 @@
   }
 }
 
+/* Performance Testing Panel */
+.perf-test-panel {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.perf-test-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #333;
+}
+
+.perf-test-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.perf-test-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+}
+
+.perf-test-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.perf-test-btn:active {
+  transform: translateY(0);
+}
+
+.perf-test-btn.danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
+}
+
+.perf-test-btn.danger:hover {
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+@media (max-width: 768px) {
+  .perf-test-panel {
+    bottom: 10px;
+    right: 10px;
+    padding: 12px;
+  }
+
+  .perf-test-buttons {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .perf-test-btn {
+    width: 100%;
+  }
+}
+
