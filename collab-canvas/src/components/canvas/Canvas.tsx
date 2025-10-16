@@ -43,9 +43,11 @@ interface CanvasProps {
   onColorChange: (color: string) => void;
   showColorPicker: boolean;
   onCloseColorPicker: () => void;
+  onGenerateTestShapes?: (count: number) => void;
+  onClearAllShapes?: () => void;
 }
 
-export default function Canvas({ user, mode, onModeChange, selectedColor, onColorChange, showColorPicker, onCloseColorPicker }: CanvasProps) {
+export default function Canvas({ user, mode, onModeChange, selectedColor, onColorChange, showColorPicker, onCloseColorPicker, onGenerateTestShapes, onClearAllShapes }: CanvasProps) {
   const [stageSize, setStageSize] = useState(fitStageToWindow());
   const [stageScale, setStageScale] = useState(1);
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
@@ -882,6 +884,33 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     console.log(`✅ Generated ${count} shapes for performance testing`);
   }, [batchCreateShapes, user.id]);
 
+  // Clear all shapes and comments
+  const clearAllShapes = useCallback(async () => {
+    if (window.confirm(`Delete all ${shapes.length} shapes and ${comments.length} comments?`)) {
+      const allIds = shapes.map(s => s.id);
+      // Delete all shapes
+      await batchDeleteShapes(allIds);
+      // Delete all comments
+      await Promise.all(comments.map(c => deleteComment(c.id)));
+    }
+  }, [shapes, comments, batchDeleteShapes, deleteComment]);
+
+  // Call the prop callbacks when functions are invoked
+  useEffect(() => {
+    if (onGenerateTestShapes) {
+      // Store ref so Toolbar can call it
+      (window as any).__generateTestShapes = generateTestShapes;
+    }
+  }, [generateTestShapes, onGenerateTestShapes]);
+
+  useEffect(() => {
+    if (onClearAllShapes) {
+      // Store ref so Toolbar can call it
+      (window as any).__clearAllShapes = clearAllShapes;
+    }
+  }, [clearAllShapes, onClearAllShapes]);
+
+
   // Handle transform end (resize/rotate)
   const handleTransformEnd = useCallback((e: Konva.KonvaEventObject<Event>) => {
     const node = e.target;
@@ -1318,42 +1347,6 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
           />
         );
       })()}
-
-      {/* Performance Testing Panel */}
-      <div className="perf-test-panel">
-        <div className="perf-test-title">Performance Testing</div>
-        <div className="perf-test-buttons">
-          <button 
-            className="perf-test-btn"
-            onClick={() => generateTestShapes(100)}
-            title="Add 100 shapes"
-          >
-            +100
-          </button>
-          <button 
-            className="perf-test-btn"
-            onClick={() => generateTestShapes(500)}
-            title="Add 500 shapes"
-          >
-            +500
-          </button>
-          <button 
-            className="perf-test-btn danger"
-            onClick={async () => {
-              if (window.confirm(`Delete all ${shapes.length} shapes and ${comments.length} comments?`)) {
-                const allIds = shapes.map(s => s.id);
-                // Delete all shapes
-                await batchDeleteShapes(allIds);
-                // Delete all comments
-                await Promise.all(comments.map(c => deleteComment(c.id)));
-              }
-            }}
-            title="Clear all shapes and comments"
-          >
-            Clear All
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

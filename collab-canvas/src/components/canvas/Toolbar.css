@@ -120,6 +120,38 @@
   gap: 12px;
 }
 
+.toolbar-perf-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.perf-btn {
+  padding: 6px 12px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  color: #667eea;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.perf-btn:hover {
+  background: #f7fafc;
+  border-color: #667eea;
+}
+
+.perf-btn.perf-btn-danger {
+  color: #e53e3e;
+}
+
+.perf-btn.perf-btn-danger:hover {
+  background: #fff5f5;
+  border-color: #fc8181;
+}
+
 .user-badge {
   display: flex;
   align-items: center;

@@ -13,9 +13,12 @@ interface ToolbarProps {
   selectedColor: string;
   showColorPicker: boolean;
   onToggleColorPicker: () => void;
+  onGenerateTestShapes: (count: number) => void;
+  onClearAllShapes: () => void;
+  shapeCount: number;
 }
 
-export default function Toolbar({ user, onSignOut, mode, onModeChange, selectedColor, showColorPicker, onToggleColorPicker }: ToolbarProps) {
+export default function Toolbar({ user, onSignOut, mode, onModeChange, selectedColor, showColorPicker, onToggleColorPicker, onGenerateTestShapes, onClearAllShapes, shapeCount }: ToolbarProps) {
   const handleToolClick = (tool: CanvasMode) => {
     onModeChange(tool);
   };
@@ -92,6 +95,30 @@ export default function Toolbar({ user, onSignOut, mode, onModeChange, selectedC
       </div>
 
       <div className="toolbar-right">
+        <div className="toolbar-perf-buttons">
+          <button 
+            className="perf-btn"
+            onClick={() => onGenerateTestShapes(100)}
+            title="Add 100 test shapes"
+          >
+            +100
+          </button>
+          <button 
+            className="perf-btn"
+            onClick={() => onGenerateTestShapes(500)}
+            title="Add 500 test shapes"
+          >
+            +500
+          </button>
+          <button 
+            className="perf-btn perf-btn-danger"
+            onClick={onClearAllShapes}
+            title={`Clear all ${shapeCount} shapes`}
+          >
+            Clear All
+          </button>
+        </div>
+        <div className="toolbar-divider"></div>
         <div className="user-badge">
           <span className="user-avatar-small" style={{ backgroundColor: user.color }}>
             {user.name.charAt(0).toUpperCase()}

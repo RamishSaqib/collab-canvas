@@ -25,6 +25,20 @@ function App() {
     setShowColorPicker(!showColorPicker)
   }
 
+  const handleGenerateTestShapes = (count: number) => {
+    // Call the function exposed by Canvas
+    if ((window as any).__generateTestShapes) {
+      (window as any).__generateTestShapes(count);
+    }
+  }
+
+  const handleClearAllShapes = () => {
+    // Call the function exposed by Canvas
+    if ((window as any).__clearAllShapes) {
+      (window as any).__clearAllShapes();
+    }
+  }
+
   // Keyboard shortcut for color picker
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
@@ -57,6 +71,9 @@ function App() {
             selectedColor={selectedColor}
             showColorPicker={showColorPicker}
             onToggleColorPicker={toggleColorPicker}
+            onGenerateTestShapes={handleGenerateTestShapes}
+            onClearAllShapes={handleClearAllShapes}
+            shapeCount={0}
           />
           <ConnectionStatusBanner />
           <div className="main-content">
@@ -69,6 +86,8 @@ function App() {
                 onColorChange={setSelectedColor}
                 showColorPicker={showColorPicker}
                 onCloseColorPicker={() => setShowColorPicker(false)}
+                onGenerateTestShapes={handleGenerateTestShapes}
+                onClearAllShapes={handleClearAllShapes}
               />
             </div>
             <Sidebar currentUser={user} />
