@@ -587,8 +587,10 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     if (shape && shape.type === 'text') {
       setEditingTextId(shapeId);
       setEditingTextValue(shape.text || 'Text');
+      // Select only this text shape for formatting
+      selectShapes([shapeId]);
     }
-  }, [shapes]);
+  }, [shapes, selectShapes]);
 
   // Focus text input when editing starts
   useEffect(() => {
@@ -724,14 +726,15 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
             };
             const isActive = activeShapes.has(shape.id);
             const lastModifiedUserName = userNameMap.get(shape.lastModifiedBy);
+            const isBeingEdited = editingTextId === shape.id;
             
             return (
               <Shape
                 key={shape.id}
                 shape={shape}
-                isSelected={selectedShapeIds.includes(shape.id)}
-                isActive={isActive}
-                activeBy={isActive ? activeShapes.get(shape.id) : undefined}
+                isSelected={!isBeingEdited && selectedShapeIds.includes(shape.id)}
+                isActive={!isBeingEdited && isActive}
+                activeBy={!isBeingEdited && isActive ? activeShapes.get(shape.id) : undefined}
                 onSelect={handleSelect}
                 onDragStart={handleShapeDragStart(shape.id)}
                 onDragMove={handleShapeDragMove(shape.id)}
@@ -948,29 +951,38 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
       )}
 
       {/* Text editing input (rendered outside Konva Stage) */}
-      {editingTextId && (
-        <input
-          ref={textInputRef}
-          type="text"
-          value={editingTextValue}
-          onChange={(e) => setEditingTextValue(e.target.value)}
-          onBlur={handleTextEditSubmit}
-          onKeyDown={handleTextEditKeyDown}
-          style={{
-            position: 'absolute',
-            left: `${getTextInputPosition().left}px`,
-            top: `${getTextInputPosition().top}px`,
-            fontSize: `${shapes.find(s => s.id === editingTextId)?.fontSize || 24}px`,
-            fontFamily: 'Arial',
-            border: '2px solid #667eea',
-            padding: '2px 4px',
-            outline: 'none',
-            backgroundColor: 'white',
-            zIndex: 1000,
-            minWidth: '100px',
-          }}
-        />
-      )}
+      {editingTextId && (() => {
+        const editingShape = shapes.find(s => s.id === editingTextId);
+        const fontStyle = editingShape?.fontStyle || 'normal';
+        const isBold = fontStyle === 'bold' || fontStyle === 'bold italic';
+        const isItalic = fontStyle === 'italic' || fontStyle === 'bold italic';
+        
+        return (
+          <input
+            ref={textInputRef}
+            type="text"
+            value={editingTextValue}
+            onChange={(e) => setEditingTextValue(e.target.value)}
+            onBlur={handleTextEditSubmit}
+            onKeyDown={handleTextEditKeyDown}
+            style={{
+              position: 'absolute',
+              left: `${getTextInputPosition().left}px`,
+              top: `${getTextInputPosition().top}px`,
+              fontSize: `${editingShape?.fontSize || 24}px`,
+              fontFamily: 'Arial',
+              fontWeight: isBold ? 'bold' : 'normal',
+              fontStyle: isItalic ? 'italic' : 'normal',
+              border: '2px solid #667eea',
+              padding: '2px 4px',
+              outline: 'none',
+              backgroundColor: 'white',
+              zIndex: 1000,
+              minWidth: '100px',
+            }}
+          />
+        );
+      })()}
 
       {/* Color picker modal */}
       {showColorPicker && (
