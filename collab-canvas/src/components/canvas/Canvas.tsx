@@ -10,6 +10,7 @@ import Shape from './Shape';
 import Cursor from './Cursor';
 import KeyboardShortcutsModal from './KeyboardShortcutsModal';
 import ColorPicker from './ColorPicker';
+import TextFormatBar from './TextFormatBar';
 import './Canvas.css';
 
 export type CanvasMode = 'select' | 'rectangle' | 'circle' | 'triangle' | 'text';
@@ -38,10 +39,14 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [editingTextValue, setEditingTextValue] = useState('');
   const [cursorPreviewPos, setCursorPreviewPos] = useState<{ x: number; y: number } | null>(null);
+  const [activeSelectionIndex, setActiveSelectionIndex] = useState(0);
+  const [selectionBox, setSelectionBox] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const shapeRefsMap = useRef<Map<string, Konva.Node>>(new Map());
   const isPanningRef = useRef(false);
+  const didPanRef = useRef(false); // Track if user actually moved during pan
+  const isSelectingRef = useRef(false); // Track if user is drawing selection box
   const lastPanPositionRef = useRef({ x: 0, y: 0 });
   const textInputRef = useRef<HTMLInputElement>(null);
   
@@ -52,7 +57,6 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     createShape,
     updateShape,
     updateShapes,
-    deleteShape,
     deleteShapes,
     duplicateShapes,
     selectShapes,
@@ -110,6 +114,11 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     return () => clearInterval(interval);
   }, [shapes.length]);
 
+  // Reset active selection index when selection changes
+  useEffect(() => {
+    setActiveSelectionIndex(0);
+  }, [selectedShapeIds]);
+
   // Attach Transformer to selected shapes
   useEffect(() => {
     const transformer = transformerRef.current;
@@ -124,32 +133,100 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
       }
     });
 
-    // Attach transformer to selected nodes
-    transformer.nodes(selectedNodes);
+    // Only show transformer for single selection
+    // For multi-select, just show individual highlights (no big bounding box)
+    if (selectedNodes.length === 1) {
+      transformer.nodes(selectedNodes);
+    } else {
+      // Hide transformer for multi-select (shapes will still show selection highlight)
+      transformer.nodes([]);
+    }
+
     transformer.getLayer()?.batchDraw();
   }, [selectedShapeIds]);
 
-  // Handle mouse move and up on document for panning
+  // Handle mouse move and up on document for panning and selection box
   useEffect(() => {
     const handleDocumentMouseMove = (e: MouseEvent) => {
-      if (!isPanningRef.current) return;
+      // Handle panning
+      if (isPanningRef.current) {
+        const dx = e.clientX - lastPanPositionRef.current.x;
+        const dy = e.clientY - lastPanPositionRef.current.y;
 
-      const dx = e.clientX - lastPanPositionRef.current.x;
-      const dy = e.clientY - lastPanPositionRef.current.y;
+        // If mouse moved more than 3 pixels, consider it a pan (not just a click)
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+          didPanRef.current = true;
+        }
 
-      setStagePosition(prev => ({
-        x: prev.x + dx,
-        y: prev.y + dy,
-      }));
+        setStagePosition(prev => ({
+          x: prev.x + dx,
+          y: prev.y + dy,
+        }));
 
-      lastPanPositionRef.current = {
-        x: e.clientX,
-        y: e.clientY,
-      };
+        lastPanPositionRef.current = {
+          x: e.clientX,
+          y: e.clientY,
+        };
+      }
+
+      // Handle selection box drawing
+      if (isSelectingRef.current) {
+        const stage = stageRef.current;
+        if (stage && selectionBox) {
+          const pos = getRelativePointerPosition(stage);
+          setSelectionBox(prev => prev ? { ...prev, x2: pos.x, y2: pos.y } : null);
+        }
+      }
     };
 
     const handleDocumentMouseUp = () => {
-      isPanningRef.current = false;
+      // Handle pan cleanup
+      if (isPanningRef.current) {
+        isPanningRef.current = false;
+        // Reset didPan after a brief delay (after click event fires)
+        setTimeout(() => {
+          didPanRef.current = false;
+        }, 50);
+      }
+
+      // Handle selection box cleanup
+      if (isSelectingRef.current) {
+        isSelectingRef.current = false;
+        
+        // Select all shapes that intersect with selection box
+        if (selectionBox) {
+          const { x1, y1, x2, y2 } = selectionBox;
+          const minX = Math.min(x1, x2);
+          const maxX = Math.max(x1, x2);
+          const minY = Math.min(y1, y2);
+          const maxY = Math.max(y1, y2);
+          
+          const selectedIds = shapes
+            .filter(shape => {
+              // Check if shape's bounding box intersects with selection box
+              const shapeX = shape.x;
+              const shapeY = shape.y;
+              const shapeWidth = shape.width || shape.radius || 100;
+              const shapeHeight = shape.height || shape.radius || 100;
+              
+              return (
+                shapeX + shapeWidth >= minX &&
+                shapeX <= maxX &&
+                shapeY + shapeHeight >= minY &&
+                shapeY <= maxY
+              );
+            })
+            .map(shape => shape.id);
+          
+          if (selectedIds.length > 0) {
+            selectShapes(selectedIds);
+            console.log('✅ Selected', selectedIds.length, 'shape(s) with selection box');
+          }
+        }
+        
+        // Clear selection box
+        setSelectionBox(null);
+      }
     };
 
     document.addEventListener('mousemove', handleDocumentMouseMove);
@@ -158,7 +235,7 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
       document.removeEventListener('mousemove', handleDocumentMouseMove);
       document.removeEventListener('mouseup', handleDocumentMouseUp);
     };
-  }, []);
+  }, [selectionBox, shapes, selectShapes]);
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -199,6 +276,14 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
             updateShapes(selectedShapeIds, { zIndex: minZIndex - 1 });
             console.log('⬇️ Sent to back');
           }
+        } else if (e.key === 'b' || e.key === 'B') {
+          // Ctrl+B: Toggle bold for selected text shapes
+          e.preventDefault();
+          handleBoldToggle();
+        } else if (e.key === 'i' || e.key === 'I') {
+          // Ctrl+I: Toggle italic for selected text shapes
+          e.preventDefault();
+          handleItalicToggle();
         }
         return; // Don't process other keys when Ctrl/Cmd is held
       }
@@ -250,12 +335,112 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
         // Show keyboard shortcuts help modal
         e.preventDefault();
         setShowShortcuts(true);
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        // Arrow keys: cycle through selected shapes
+        if (selectedShapeIds.length > 1) {
+          e.preventDefault();
+          const newIndex = e.key === 'ArrowRight' 
+            ? (activeSelectionIndex + 1) % selectedShapeIds.length
+            : (activeSelectionIndex - 1 + selectedShapeIds.length) % selectedShapeIds.length;
+          
+          setActiveSelectionIndex(newIndex);
+          
+          // Pan to the active shape
+          const activeShapeId = selectedShapeIds[newIndex];
+          const activeShape = shapes.find(s => s.id === activeShapeId);
+          if (activeShape && stageRef.current) {
+            const stage = stageRef.current;
+            const scale = stage.scaleX();
+            
+            // Calculate position to center the shape in viewport
+            const newX = (stage.width() / 2) - (activeShape.x * scale);
+            const newY = (stage.height() / 2) - (activeShape.y * scale);
+            
+            setStagePosition({ x: newX, y: newY });
+          }
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onModeChange, clearSelection, deleteShapes, duplicateShapes, selectAll, updateShapes, selectedShapeIds, editingTextId, user.id, shapes]);
+  }, [onModeChange, clearSelection, deleteShapes, duplicateShapes, selectAll, updateShapes, selectedShapeIds, editingTextId, user.id, shapes, activeSelectionIndex, stageScale]);
+
+  // Determine if text format bar should be shown and get common formatting
+  const selectedTextShapes = useMemo(() => {
+    return selectedShapeIds
+      .map(id => shapes.find(s => s.id === id))
+      .filter(shape => shape && shape.type === 'text');
+  }, [selectedShapeIds, shapes]);
+
+  const showTextFormatBar = selectedTextShapes.length > 0;
+
+  // Get common formatting from selected text shapes
+  const commonTextFormat = useMemo(() => {
+    if (selectedTextShapes.length === 0) {
+      return { fontSize: 24, fontStyle: 'normal' as const };
+    }
+
+    // Use first shape's values as baseline
+    const firstShape = selectedTextShapes[0];
+    return {
+      fontSize: firstShape?.fontSize || 24,
+      fontStyle: firstShape?.fontStyle || ('normal' as const),
+    };
+  }, [selectedTextShapes]);
+
+  // Handle font size change for selected text shapes
+  const handleFontSizeChange = useCallback((newSize: number) => {
+    const textShapeIds = selectedTextShapes.map(s => s!.id);
+    if (textShapeIds.length > 0) {
+      updateShapes(textShapeIds, { fontSize: newSize });
+      console.log('📝 Changed font size to', newSize);
+    }
+  }, [selectedTextShapes, updateShapes]);
+
+  // Handle bold toggle for selected text shapes
+  const handleBoldToggle = useCallback(() => {
+    const textShapeIds = selectedTextShapes.map(s => s!.id);
+    if (textShapeIds.length === 0) return;
+
+    const currentStyle = commonTextFormat.fontStyle;
+    let newStyle: 'normal' | 'bold' | 'italic' | 'bold italic';
+
+    if (currentStyle === 'normal') {
+      newStyle = 'bold';
+    } else if (currentStyle === 'bold') {
+      newStyle = 'normal';
+    } else if (currentStyle === 'italic') {
+      newStyle = 'bold italic';
+    } else { // 'bold italic'
+      newStyle = 'italic';
+    }
+
+    updateShapes(textShapeIds, { fontStyle: newStyle });
+    console.log('📝 Toggled bold:', newStyle);
+  }, [selectedTextShapes, commonTextFormat, updateShapes]);
+
+  // Handle italic toggle for selected text shapes
+  const handleItalicToggle = useCallback(() => {
+    const textShapeIds = selectedTextShapes.map(s => s!.id);
+    if (textShapeIds.length === 0) return;
+
+    const currentStyle = commonTextFormat.fontStyle;
+    let newStyle: 'normal' | 'bold' | 'italic' | 'bold italic';
+
+    if (currentStyle === 'normal') {
+      newStyle = 'italic';
+    } else if (currentStyle === 'italic') {
+      newStyle = 'normal';
+    } else if (currentStyle === 'bold') {
+      newStyle = 'bold italic';
+    } else { // 'bold italic'
+      newStyle = 'bold';
+    }
+
+    updateShapes(textShapeIds, { fontStyle: newStyle });
+    console.log('📝 Toggled italic:', newStyle);
+  }, [selectedTextShapes, commonTextFormat, updateShapes]);
 
   // Handle zoom with mouse wheel (memoized)
   const handleWheel = useCallback((e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -295,25 +480,38 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
           const pos = getRelativePointerPosition(stage);
           createShape(pos.x, pos.y, user.id, mode, selectedColor);
         }
-      } else {
-        // Deselect when clicking empty canvas in select mode
+      } else if (mode === 'select' && !e.evt.shiftKey && !didPanRef.current) {
+        // Only deselect if: not holding Shift AND didn't pan the canvas
         clearSelection();
       }
     }
   }, [mode, createShape, clearSelection, user.id, selectedColor]);
 
-  // Manual panning: Handle mouse down on stage - memoized
+  // Manual panning or selection box: Handle mouse down on stage - memoized
   const handleStageMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
     const stage = e.target.getStage();
     const clickedOnEmpty = e.target === stage;
     
-    // Only start panning if we clicked on empty canvas in select mode
     if (clickedOnEmpty && mode === 'select') {
-      isPanningRef.current = true;
-      lastPanPositionRef.current = {
-        x: e.evt.clientX,
-        y: e.evt.clientY,
-      };
+      // Ctrl/Cmd or middle mouse button = pan, otherwise = selection box
+      const shouldPan = e.evt.ctrlKey || e.evt.metaKey || e.evt.button === 1;
+      
+      if (shouldPan) {
+        // Start panning
+        isPanningRef.current = true;
+        didPanRef.current = false;
+        lastPanPositionRef.current = {
+          x: e.evt.clientX,
+          y: e.evt.clientY,
+        };
+      } else {
+        // Start drawing selection box
+        isSelectingRef.current = true;
+        if (stage) {
+          const pos = getRelativePointerPosition(stage);
+          setSelectionBox({ x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y });
+        }
+      }
     }
   }, [mode]);
 
@@ -540,6 +738,7 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
                 onDragEnd={handleShapeDragEnd(shape.id)}
                 onTextDoubleClick={shape.type === 'text' ? handleTextDoubleClick(shape.id) : undefined}
                 userName={lastModifiedUserName}
+                userColor={user.color}
                 shapeRef={(node: Konva.Node | null) => {
                   if (node) {
                     shapeRefsMap.current.set(shape.id, node);
@@ -555,6 +754,8 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
           <Transformer
             ref={transformerRef}
             onTransformEnd={handleTransformEnd}
+            rotateAnchorOffset={30}
+            rotateAnchorCursor="grab"
             boundBoxFunc={(oldBox, newBox) => {
               // Limit resize to minimum 5x5 pixels
               if (newBox.width < 5 || newBox.height < 5) {
@@ -631,6 +832,21 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
               )}
             </>
           )}
+
+          {/* Selection box for drag-to-select */}
+          {selectionBox && (
+            <Rect
+              x={Math.min(selectionBox.x1, selectionBox.x2)}
+              y={Math.min(selectionBox.y1, selectionBox.y2)}
+              width={Math.abs(selectionBox.x2 - selectionBox.x1)}
+              height={Math.abs(selectionBox.y2 - selectionBox.y1)}
+              fill="rgba(102, 126, 234, 0.1)"
+              stroke="#667eea"
+              strokeWidth={2}
+              dash={[5, 5]}
+              listening={false}
+            />
+          )}
         </Layer>
       </Stage>
       
@@ -655,6 +871,24 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
           <span className="info-value">{Math.round(stageScale * 100)}%</span>
         </div>
       </div>
+
+      {/* Multi-select counter */}
+      {selectedShapeIds.length > 1 && (
+        <div className="selection-counter">
+          <div className="selection-count">
+            <span className="selection-icon">✓</span>
+            <span className="selection-number">{selectedShapeIds.length} selected</span>
+          </div>
+          <div className="selection-navigation">
+            <span className="selection-hint">← → to navigate</span>
+            {selectedShapeIds.length > 1 && (
+              <span className="selection-position">
+                {activeSelectionIndex + 1} / {selectedShapeIds.length}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Empty state */}
       {shapes.length === 0 && mode === 'select' && (
@@ -746,6 +980,17 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
           onClose={onCloseColorPicker}
           onApply={selectedShapeIds.length > 0 ? handleApplyColorToSelected : undefined}
           showApply={selectedShapeIds.length > 0}
+        />
+      )}
+
+      {/* Text formatting toolbar */}
+      {showTextFormatBar && (
+        <TextFormatBar
+          fontSize={commonTextFormat.fontSize}
+          fontStyle={commonTextFormat.fontStyle}
+          onFontSizeChange={handleFontSizeChange}
+          onBoldToggle={handleBoldToggle}
+          onItalicToggle={handleItalicToggle}
         />
       )}
     </div>

@@ -22,17 +22,34 @@ const shortcuts: Shortcut[] = [
   { keys: ['P'], description: 'Color picker', category: 'Tools' },
   { keys: ['ESC'], description: 'Deselect & return to select mode', category: 'Tools' },
   
-  // Actions
-  { keys: ['Delete'], description: 'Delete selected shape', category: 'Actions' },
-  { keys: ['Backspace'], description: 'Delete selected shape', category: 'Actions' },
-  { keys: ['Double-Click Text'], description: 'Edit text content', category: 'Actions' },
-  { keys: ['Enter'], description: 'Apply color to selected shape', category: 'Actions' },
+  // Selection
+  { keys: ['Click'], description: 'Select shape', category: 'Selection' },
+  { keys: ['Shift', 'Click'], description: 'Multi-select (toggle)', category: 'Selection' },
+  { keys: ['Drag'], description: 'Draw selection box', category: 'Selection' },
+  { keys: ['Ctrl', 'A'], description: 'Select all shapes', category: 'Selection' },
+  { keys: ['← →'], description: 'Navigate between selected shapes', category: 'Selection' },
+  
+  // Shape Actions
+  { keys: ['Delete'], description: 'Delete selected shape(s)', category: 'Shape Actions' },
+  { keys: ['Backspace'], description: 'Delete selected shape(s)', category: 'Shape Actions' },
+  { keys: ['Ctrl', 'D'], description: 'Duplicate selected shape(s)', category: 'Shape Actions' },
+  { keys: ['Ctrl', ']'], description: 'Bring to front', category: 'Shape Actions' },
+  { keys: ['Ctrl', '['], description: 'Send to back', category: 'Shape Actions' },
+  { keys: ['Drag Handles'], description: 'Resize/rotate shape', category: 'Shape Actions' },
+  { keys: ['Drag Shape'], description: 'Move shape', category: 'Shape Actions' },
+  
+  // Text Formatting
+  { keys: ['Double-Click Text'], description: 'Edit text content', category: 'Text Formatting' },
+  { keys: ['Ctrl', 'B'], description: 'Toggle bold', category: 'Text Formatting' },
+  { keys: ['Ctrl', 'I'], description: 'Toggle italic', category: 'Text Formatting' },
+  
+  // Color
+  { keys: ['Enter'], description: 'Apply color to selected shape', category: 'Color' },
   
   // Navigation
   { keys: ['Mouse Wheel'], description: 'Zoom in/out', category: 'Navigation' },
-  { keys: ['Drag Empty Space'], description: 'Pan canvas (select mode)', category: 'Navigation' },
-  { keys: ['Click'], description: 'Select shape or create shape', category: 'Navigation' },
-  { keys: ['Drag Shape'], description: 'Move shape', category: 'Navigation' },
+  { keys: ['Drag Empty Space'], description: 'Pan canvas', category: 'Navigation' },
+  { keys: ['Ctrl', 'Drag'], description: 'Pan canvas (force)', category: 'Navigation' },
   
   // Help
   { keys: ['?'], description: 'Show keyboard shortcuts', category: 'Help' },

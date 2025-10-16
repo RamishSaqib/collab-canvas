@@ -15,6 +15,7 @@ interface TriangleProps {
   onDragMove?: (e: Konva.KonvaEventObject<DragEvent>) => void;
   onDragEnd: (e: Konva.KonvaEventObject<DragEvent>) => void;
   userName?: string; // Name of user who last modified (for tooltip)
+  userColor?: string; // Current user's color for selection highlight
   shapeRef?: (node: Konva.Node | null) => void;
 }
 
@@ -22,7 +23,7 @@ interface TriangleProps {
  * Memoized Triangle component for optimal rendering performance
  * Only re-renders when shape data, selection state, or callbacks change
  */
-function Triangle({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, userName, shapeRef }: TriangleProps) {
+function Triangle({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, userName, userColor, shapeRef }: TriangleProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
@@ -64,7 +65,7 @@ function Triangle({ shape, isSelected, isActive, activeBy, onSelect, onDragStart
       return activeBy.userColor; // Active editing by another user
     }
     if (isSelected) {
-      return '#667eea'; // Selected by current user
+      return userColor || '#667eea'; // Selected by current user (use their color)
     }
     return undefined;
   };
@@ -74,7 +75,7 @@ function Triangle({ shape, isSelected, isActive, activeBy, onSelect, onDragStart
       return 4; // Thicker for active editing
     }
     if (isSelected) {
-      return 3;
+      return 4; // Make selection more prominent
     }
     return 0;
   };

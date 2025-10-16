@@ -210,6 +210,75 @@
   font-weight: 500;
 }
 
+/* Multi-select counter */
+.selection-counter {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 12px;
+  padding: 12px 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  user-select: none;
+  animation: fadeIn 0.3s ease-in;
+  border: 2px solid #667eea;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 200px;
+}
+
+.selection-count {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d3748;
+}
+
+.selection-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: #667eea;
+  color: white;
+  border-radius: 50%;
+  font-size: 14px;
+}
+
+.selection-number {
+  color: #667eea;
+}
+
+.selection-navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #718096;
+  padding-top: 8px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.selection-hint {
+  font-family: 'Courier New', monospace;
+  background: #f7fafc;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.selection-position {
+  font-weight: 600;
+  color: #4a5568;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .canvas-info {
@@ -231,6 +300,21 @@
     width: 40px;
     height: 40px;
     font-size: 20px;
+  }
+
+  .selection-counter {
+    top: 70px;
+    font-size: 0.85rem;
+    padding: 10px 16px;
+    min-width: 180px;
+  }
+
+  .selection-count {
+    font-size: 14px;
+  }
+
+  .selection-navigation {
+    font-size: 11px;
   }
 }
 

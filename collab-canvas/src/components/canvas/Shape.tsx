@@ -20,6 +20,7 @@ export interface ShapeProps {
   onTextChange?: (newText: string) => void;
   onTextDoubleClick?: () => void;
   userName?: string; // Name of user who last modified (for tooltip)
+  userColor?: string; // Current user's color for selection highlight
   shapeRef?: (node: Konva.Node | null) => void; // Ref callback for Transformer
 }
 
@@ -31,7 +32,7 @@ export interface ShapeProps {
  * isActive indicates the shape is being edited by someone in real-time
  * activeBy contains info about who is editing (userId, userName, userColor)
  */
-function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, onTextDoubleClick, userName, shapeRef }: ShapeProps) {
+function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, onDragMove, onDragEnd, onTextDoubleClick, userName, userColor, shapeRef }: ShapeProps) {
   // Render different components based on shape type
   if (shape.type === 'circle') {
     return (
@@ -45,6 +46,7 @@ function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, o
         onDragMove={onDragMove}
         onDragEnd={onDragEnd}
         userName={userName}
+        userColor={userColor}
         shapeRef={shapeRef}
       />
     );
@@ -62,6 +64,7 @@ function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, o
         onDragMove={onDragMove}
         onDragEnd={onDragEnd}
         userName={userName}
+        userColor={userColor}
         shapeRef={shapeRef}
       />
     );
@@ -80,6 +83,7 @@ function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, o
         onDragEnd={onDragEnd}
         onDoubleClick={onTextDoubleClick}
         userName={userName}
+        userColor={userColor}
         shapeRef={shapeRef}
       />
     );
@@ -129,7 +133,7 @@ function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, o
       return activeBy.userColor; // Active editing by another user
     }
     if (isSelected) {
-      return '#667eea'; // Selected by current user
+      return userColor || '#667eea'; // Selected by current user (use their color)
     }
     return undefined;
   };
@@ -139,7 +143,7 @@ function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, o
       return 4; // Thicker for active editing
     }
     if (isSelected) {
-      return 3;
+      return 4; // Make selection more prominent
     }
     return 0;
   };
