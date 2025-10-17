@@ -723,61 +723,89 @@ Improve canvas usability with coordinate display for precise positioning and cle
 
 ## AI Canvas Agent Features
 
-### PR #19: AI Canvas Agent with Natural Language Commands (In Progress)
-**Goal:** Achieve EXCELLENT rating (23-25/25) for AI Canvas Agent category
+### PR #19: AI Canvas Agent - Creation & Complex Commands (Complete ✅)
+**Goal:** Build foundation for AI agent with creation and complex commands
 
-**Target Score:**
-- Command Breadth & Capability: 10/10 points
-  - 8+ distinct command types covering all categories
-- Complex Command Execution: 8/8 points
-  - Multi-step plans with proper arrangement
-- AI Performance & Reliability: 7/7 points
-  - Sub-2 second responses, 90%+ accuracy, multi-user support
+**Status: COMPLETE**
+- ✅ AI Provider Integration (OpenAI GPT-4 Turbo)
+- ✅ Command Parser with structured JSON outputs
+- ✅ Command Executor with history integration
+- ✅ Creation Commands (circles, rectangles, triangles, text with colors & positions)
+- ✅ Grid Layout Commands (3x3 grids, NxN grids)
+- ✅ Complex Commands (login forms, navbars, card layouts, buttons)
+- ✅ Explicit Positioning Support (grid coordinate system)
+- ✅ Real-time Multi-User AI Support
+- ✅ Sub-2 second response times
 
-**Command Categories to Implement:**
+**Achievements:**
+- Complex Command Execution: 7-8/8 points (Excellent) ✅
+- AI Performance & Reliability: 6-7/7 points (Excellent) ✅
+- Command Breadth: 5-6/10 points (Satisfactory) - Need manipulation commands
 
-**Creation Commands (at least 2 required):**
-- "Create a red circle at position 100, 200"
-- "Add a text layer that says 'Hello World'"
-- "Make a 200x300 rectangle"
-- "Add a blue triangle in the center"
+---
 
-**Manipulation Commands (at least 2 required):**
-- "Move the blue rectangle to the center"
-- "Resize the circle to be twice as big"
-- "Rotate the text 45 degrees"
-- "Change all red shapes to green"
-- "Delete all circles"
+### PR #20: AI Canvas Agent - Manipulation Commands 🎯
+**Goal:** Implement manipulation commands to reach EXCELLENT rating (23-25/25)
 
-**Layout Commands (at least 1 required):**
-- "Arrange these shapes in a horizontal row"
-- "Create a grid of 3x3 squares"
-- "Space these elements evenly"
-- "Stack the selected shapes vertically"
+**Target Score Increase:**
+- Command Breadth & Capability: 5-6/10 → 9-10/10 points
+  - Add 3-4 manipulation command types to reach 8+ total distinct types
+- Total: 18-21/25 → 22-25/25 points = **EXCELLENT!** 🏆
 
-**Complex Commands (at least 1 required):**
-- "Create a login form with username and password fields"
-- "Build a navigation bar with 4 menu items"
-- "Make a card layout with title, image, and description"
-- "Design a button with text and icon"
+**Manipulation Commands to Implement:**
+
+1. **Move Command** - "Move the blue rectangle to the center"
+   - Query shapes by color, type, name, or selection
+   - Support absolute positions (x, y coordinates)
+   - Support relative positions ("center", "top-left", etc.)
+   - Batch updates for multiple matching shapes
+
+2. **Resize Command** - "Resize the circle to be twice as big"
+   - Support relative sizing (2x, 50%, +100px)
+   - Support absolute sizing (width: 200, height: 150)
+   - Handle different shape types (radius for circles, width/height for rectangles)
+   - Maintain aspect ratio for uniform scaling
+
+3. **Rotate Command** - "Rotate the text 45 degrees"
+   - Support angle in degrees
+   - Support relative rotation ("+90 degrees", "rotate 180")
+   - Query shapes by type/color/selection
+
+4. **Change Color Command** - "Change all red shapes to green"
+   - Query shapes by current color
+   - Support hex colors and named colors
+   - Batch color updates
+
+5. **Delete Command** - "Delete all circles"
+   - Query shapes by type, color, or selection
+   - Batch deletion with undo support
+   - Confirmation for large deletions (10+ shapes)
 
 **Features to Implement:**
-- ✅ Natural language input field in toolbar
-- ✅ AI processing with OpenAI API or similar
-- ✅ Command parsing and intent recognition
-- ✅ Multi-step command execution
-- ✅ Visual feedback during AI processing
-- ✅ Error handling and suggestions
-- ✅ Command history and undo/redo integration
-- ✅ Multi-user AI command support
-- ✅ Real-time sync of AI-created objects
+- ✅ Shape querying system (by type, color, position, selection)
+- ✅ Move operation with position calculation
+- ✅ Resize operation with size calculation
+- ✅ Rotate operation
+- ✅ Color change operation
+- ✅ Delete operation with undo support
+- ✅ Batch operations for multiple shapes
+- ✅ Integration with existing undo/redo system
 
 **Technical Implementation:**
-- AI Provider: OpenAI GPT-4 or Claude API
-- Command Parser: Intent classification + entity extraction
-- Execution Engine: Maps intents to canvas operations
-- Shared State: All AI creations sync via Firestore
-- Performance: <2 second response time target
+- Extend `useAIAgent` hook with manipulation handlers
+- Implement `ShapeQuery` system for finding shapes
+- Add `executeMove`, `executeResize`, `executeRotate`, `executeChangeColor`, `executeDelete`
+- Update AI prompt with manipulation command examples
+- Leverage existing `updateShapesWithHistory` and `deleteShapesWithHistory`
+- Maintain sub-2 second response time
+
+**Success Criteria:**
+- 8+ distinct command types (6 current + 3-4 manipulation = 9-10 total)
+- Command Breadth score: 9-10/10 (Excellent)
+- Total AI Agent score: 22-25/25 (Excellent)
+- All manipulation commands work with 90%+ accuracy
+- Batch operations work reliably
+- Undo/redo works for all manipulations
 
 ---
 

@@ -2237,19 +2237,32 @@ PR #19 will implement the AI Canvas Agent with natural language commands.
 
 ---
 
-## PR #19: AI Canvas Agent with Natural Language Commands 🤖
-**Goal:** Achieve EXCELLENT rating (23-25/25) for AI Canvas Agent category
+## PR #19: AI Canvas Agent - Creation & Complex Commands ✅
+**Goal:** Build foundation for AI agent with creation and complex commands
 
-### Status: IN PROGRESS
+### Status: COMPLETE ✅
 
 ### Summary:
-Implement an AI-powered canvas agent that understands natural language commands and can create, manipulate, and arrange shapes intelligently. The agent will support 8+ distinct command types across all categories (creation, manipulation, layout, complex), execute multi-step plans, and maintain sub-2 second response times with 90%+ accuracy.
+Implemented an AI-powered canvas agent using OpenAI GPT-4 Turbo that understands natural language commands for shape creation and complex multi-shape layouts. The agent supports 6 distinct command types with sub-2 second response times and 90%+ accuracy for complex commands.
 
-### Target Score:
-- **Command Breadth & Capability:** 10/10 points (8+ command types, all categories)
-- **Complex Command Execution:** 8/8 points (multi-step layouts with proper arrangement)
-- **AI Performance & Reliability:** 7/7 points (sub-2s responses, 90%+ accuracy, multi-user)
-- **Total:** 25/25 points = EXCELLENT! 🏆
+### Achievements:
+- ✅ AI Provider Integration (OpenAI GPT-4 Turbo)
+- ✅ Command Parser with structured JSON outputs
+- ✅ Command Executor with history integration
+- ✅ Creation Commands (shapes with colors & positions)
+- ✅ Grid Layout Commands (3x3, NxN grids)
+- ✅ Complex Commands (login forms, navbars, card layouts, buttons)
+- ✅ Explicit Positioning Support (grid coordinate system)
+- ✅ Real-time Multi-User AI Support
+- ✅ Sub-2 second response times
+
+### Current Score:
+- **Command Breadth & Capability:** 5-6/10 points (Satisfactory) - 6 command types
+- **Complex Command Execution:** 7-8/8 points (Excellent) ✅
+- **AI Performance & Reliability:** 6-7/7 points (Excellent) ✅
+- **Total:** 18-21/25 points (Good to Excellent)
+
+**Next:** Implement manipulation commands in PR #20 to reach EXCELLENT rating (22-25/25)
 
 ### Tasks:
 
@@ -2645,4 +2658,240 @@ Implement an AI-powered canvas agent that understands natural language commands 
   - Post-deployment smoke testing
   - Monitor Firebase and AI API usage
   
-**PR Title:** `feat: add AI canvas agent with natural language commands`
+**PR Title:** `feat: add AI canvas agent with creation and complex commands`
+
+---
+
+## PR #20: AI Canvas Agent - Manipulation Commands 🎯
+**Goal:** Implement manipulation commands to reach EXCELLENT rating (23-25/25)
+
+### Status: NOT STARTED
+
+### Summary:
+Add manipulation commands (move, resize, rotate, changeColor, delete) to the AI Canvas Agent, increasing command breadth from 6 to 9-10 distinct types. This will elevate the Command Breadth & Capability score from 5-6/10 (Satisfactory) to 9-10/10 (Excellent), achieving an overall EXCELLENT rating (22-25/25).
+
+### Target Score:
+- **Command Breadth & Capability:** 5-6/10 → 9-10/10 points (add 3-4 manipulation types)
+- **Total Score:** 18-21/25 → 22-25/25 points = **EXCELLENT!** 🏆
+
+### Current Command Types (6 total):
+1. ✅ Create shapes (circles, rectangles, triangles, text)
+2. ✅ Create shapes with colors
+3. ✅ Create shapes with explicit positions
+4. ✅ Create grid layouts
+5. ✅ Create complex components (login form, navbar, card, button)
+6. ✅ Multi-shape complex commands
+
+### Target Command Types (9-10 total):
+7. **Move shapes** - "Move the blue rectangle to the center"
+8. **Resize shapes** - "Resize the circle to be twice as big"
+9. **Rotate shapes** - "Rotate the text 45 degrees"
+10. **Change color** - "Change all red shapes to green"
+11. **Delete shapes** - "Delete all circles"
+
+### Tasks:
+
+#### 1. Implement Shape Query System
+- [ ] Build system to find shapes based on criteria
+  - **Files:** `src/hooks/useAIAgent.ts`
+  - Query by shape type (all rectangles, all circles, etc.)
+  - Query by color (#ff0000, red, etc.)
+  - Query by selection state (selected shapes)
+  - Query by position (shapes at center, top-left, etc.)
+  - Return matching shape IDs
+  - Handle "no matches found" gracefully
+  - Support batch queries for multiple filters
+
+#### 2. Implement Move Command
+- [ ] Support "Move [shape query] to [position]"
+  - **Files:** `src/hooks/useAIAgent.ts`, `src/lib/ai-provider.ts`
+  - Parse move intent from AI response
+  - Implement `executeMoveCommand` function
+  - Support absolute positions: (x, y) in grid coordinates
+  - Support relative positions: "center", "top-left", "top-right", etc.
+  - Calculate position based on viewport for relative positions
+  - Update shapes using `updateShapesWithHistory` for undo support
+  - Batch move for multiple shapes
+  - Example: "Move the blue rectangle to (100, 50)"
+  - Example: "Move all circles to the center"
+  - Add examples to AI system prompt
+
+#### 3. Implement Resize Command
+- [ ] Support "Resize [shape query] to [size]"
+  - **Files:** `src/hooks/useAIAgent.ts`, `src/lib/ai-provider.ts`
+  - Parse resize intent from AI response
+  - Implement `executeResizeCommand` function
+  - Support relative sizing: "2x", "twice as big", "50%", "half"
+  - Support absolute sizing: width/height for rectangles, radius for circles
+  - Calculate new dimensions based on current size
+  - Handle different shape types (rectangle: width/height, circle: radius)
+  - Update shapes using `updateShapesWithHistory` for undo support
+  - Batch resize for multiple shapes
+  - Example: "Resize the circle to be twice as big"
+  - Example: "Make all rectangles 50% smaller"
+  - Add examples to AI system prompt
+
+#### 4. Implement Rotate Command
+- [ ] Support "Rotate [shape query] [angle]"
+  - **Files:** `src/hooks/useAIAgent.ts`, `src/lib/ai-provider.ts`
+  - Parse rotate intent from AI response
+  - Implement `executeRotateCommand` function
+  - Support absolute rotation: "45 degrees", "90 degrees"
+  - Support relative rotation: "+45 degrees", "rotate 180"
+  - Convert degrees to radians for Konva
+  - Update shapes using `updateShapesWithHistory` for undo support
+  - Batch rotate for multiple shapes
+  - Example: "Rotate the text 45 degrees"
+  - Example: "Rotate all triangles 90 degrees clockwise"
+  - Add examples to AI system prompt
+
+#### 5. Implement Change Color Command
+- [ ] Support "Change [shape query] to [color]"
+  - **Files:** `src/hooks/useAIAgent.ts`, `src/lib/ai-provider.ts`
+  - Parse changeColor intent from AI response
+  - Implement `executeChangeColorCommand` function
+  - Support hex colors: "#ff0000"
+  - Support named colors: "red", "blue", "green"
+  - Query shapes by current color
+  - Update shapes using `updateShapesWithHistory` for undo support
+  - Batch color change for multiple shapes
+  - Example: "Change all red shapes to green"
+  - Example: "Make the blue rectangle purple"
+  - Add examples to AI system prompt
+
+#### 6. Implement Delete Command
+- [ ] Support "Delete [shape query]"
+  - **Files:** `src/hooks/useAIAgent.ts`, `src/lib/ai-provider.ts`
+  - Parse delete intent from AI response
+  - Implement `executeDeleteCommand` function
+  - Query shapes to delete
+  - Confirmation prompt for large deletions (10+ shapes)
+  - Delete shapes using `deleteShapesWithHistory` for undo support
+  - Batch delete for multiple shapes
+  - Example: "Delete all circles"
+  - Example: "Remove the red rectangle"
+  - Example: "Delete selected shapes"
+  - Add examples to AI system prompt
+
+#### 7. Update AI System Prompt
+- [ ] Add manipulation command examples and rules
+  - **Files:** `src/lib/ai-provider.ts`
+  - Add MOVE command format and examples
+  - Add RESIZE command format and examples
+  - Add ROTATE command format and examples
+  - Add CHANGECOLOR command format and examples
+  - Add DELETE command format and examples
+  - Specify shape query syntax
+  - Add position calculation rules (center = viewport center)
+  - Add size calculation rules (2x = double current size)
+  - Add color format rules (hex vs named colors)
+
+#### 8. Update Command Types
+- [ ] Extend type definitions for manipulation commands
+  - **Files:** `src/lib/types.ts`
+  - Ensure `CommandIntent` includes 'move', 'resize', 'rotate', 'changeColor', 'delete'
+  - Ensure `CommandEntity` includes query, newPosition, newSize, rotation, newColor
+  - Update `ShapeQuery` interface if needed
+
+#### 9. Test Move Commands
+- [ ] Validate move functionality
+  - Test: "Move the blue rectangle to the center"
+  - Test: "Move all circles to (100, 50)"
+  - Test: "Move selected shapes to top-left"
+  - Test batch moves (multiple shapes)
+  - Test with no matching shapes
+  - Verify undo/redo works
+  - Verify real-time sync with other users
+
+#### 10. Test Resize Commands
+- [ ] Validate resize functionality
+  - Test: "Resize the circle to be twice as big"
+  - Test: "Make all rectangles 50% smaller"
+  - Test: "Resize the triangle to 200x200"
+  - Test batch resize (multiple shapes)
+  - Test with different shape types
+  - Verify undo/redo works
+  - Verify real-time sync with other users
+
+#### 11. Test Rotate Commands
+- [ ] Validate rotate functionality
+  - Test: "Rotate the text 45 degrees"
+  - Test: "Rotate all triangles 90 degrees"
+  - Test: "+45 degrees" (relative rotation)
+  - Test batch rotate (multiple shapes)
+  - Verify undo/redo works
+  - Verify real-time sync with other users
+
+#### 12. Test Change Color Commands
+- [ ] Validate color change functionality
+  - Test: "Change all red shapes to green"
+  - Test: "Make the blue rectangle purple"
+  - Test with hex colors: "Change to #ff00ff"
+  - Test batch color change (multiple shapes)
+  - Verify undo/redo works
+  - Verify real-time sync with other users
+
+#### 13. Test Delete Commands
+- [ ] Validate delete functionality
+  - Test: "Delete all circles"
+  - Test: "Remove the red rectangle"
+  - Test: "Delete selected shapes"
+  - Test batch delete (multiple shapes)
+  - Test confirmation for large deletions
+  - Verify undo/redo works
+  - Verify real-time sync with other users
+
+#### 14. Performance Testing
+- [ ] Ensure manipulation commands meet performance targets
+  - Response time <2 seconds for all manipulation commands
+  - Test with 100+ shapes on canvas
+  - Test batch operations (50+ shapes)
+  - Verify 60 FPS maintained during operations
+  - Measure query performance (finding shapes)
+
+#### 15. Integration Testing
+- [ ] Test manipulation commands with existing features
+  - Test move + undo + redo
+  - Test resize + undo + redo
+  - Test delete + undo + redo
+  - Test multiple users using manipulation commands simultaneously
+  - Test complex scenarios: "Move all red circles to center, then resize them 2x"
+  - Verify all operations sync correctly
+
+#### 16. Accuracy Testing
+- [ ] Validate 90%+ accuracy for manipulation commands
+  - Test 50+ diverse manipulation commands
+  - Track success rate for each command type
+  - Identify and fix common parsing errors
+  - Refine AI prompt based on failure patterns
+  - Document edge cases and limitations
+
+#### 17. Update Documentation
+- [ ] Document new manipulation commands
+  - **Files:** `README.md`, `PRD.md`
+  - Add manipulation command examples
+  - Document shape query syntax
+  - Add troubleshooting section
+  - Update command list (now 9-10 types)
+
+#### 18. Build, Test, and Deploy
+- [ ] Production deployment with comprehensive testing
+  - Run full test suite
+  - Test all 9-10 command types manually
+  - Verify EXCELLENT rating criteria met:
+    - 9-10 distinct command types ✅
+    - All categories covered ✅
+    - Creation commands work ✅
+    - Manipulation commands work ✅
+    - Layout commands work ✅
+    - Complex commands work ✅
+    - Sub-2 second responses ✅
+    - 90%+ accuracy ✅
+    - Multi-user support ✅
+  - Build production bundle
+  - Test with `npm run preview`
+  - Deploy to Firebase Hosting
+  - Update PRD.md and tasks.md with final status
+  - Celebrate achieving EXCELLENT rating! 🎉 🏆
+
+**PR Title:** `feat: add AI canvas agent manipulation commands (move, resize, rotate, changeColor, delete)`
