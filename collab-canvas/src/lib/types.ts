@@ -110,7 +110,7 @@ export interface CommandEntity {
   shapeType?: 'rectangle' | 'circle' | 'triangle' | 'text';
   color?: string;
   position?: { x: number; y: number };
-  size?: { width: number; height: number } | { radius: number };
+  size?: { width?: number; height?: number; radius?: number; scale?: number };
   rotation?: number;
   text?: string;
   count?: number; // For grids like "3x3"
@@ -125,6 +125,7 @@ export interface ShapeQuery {
   color?: string;
   position?: 'center' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
   selected?: boolean; // Query selected shapes
+  limit?: number; // Limit to N most recent shapes (1 for "the shape", undefined for "all shapes")
 }
 
 export interface AICommand {

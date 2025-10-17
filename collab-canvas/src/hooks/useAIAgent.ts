@@ -91,12 +91,12 @@ export function useAIAgent(
   /**
    * Find shapes matching a query
    */
-  const findShapesByQuery = useCallback((query?: ShapeQuery): CanvasObject[] => {
+  const findShapesByQuery = useCallback((allShapes: CanvasObject[], query?: ShapeQuery): CanvasObject[] => {
     if (!query) return [];
 
-    let matchingShapes = [...shapes];
+    let matchingShapes = [...allShapes];
     
-    console.log('🔍 Query:', query, 'Total shapes:', shapes.length);
+    console.log('🔍 Query:', query, 'Total shapes:', allShapes.length);
 
     // Filter by selection first
     if (query.selected === true) {
@@ -129,8 +129,16 @@ export function useAIAgent(
     }
 
     console.log('✅ Final matches:', matchingShapes.length);
+    
+    // Sort by creation time (most recent last) and apply limit
+    if (query.limit) {
+      matchingShapes.sort((a, b) => (a.lastModifiedAt || 0) - (b.lastModifiedAt || 0));
+      matchingShapes = matchingShapes.slice(-query.limit); // Take last N (most recent)
+      console.log('  After limit (' + query.limit + '):', matchingShapes.length);
+    }
+    
     return matchingShapes;
-  }, [shapes, selectedShapeIds]);
+  }, [selectedShapeIds]);
 
   /**
    * Execute batch create for multiple shapes (for better undo/redo)
@@ -241,55 +249,6 @@ export function useAIAgent(
   }, [batchCreateShapesWithHistory, updateShapesWithHistory, userId, stagePos, stageScale]);
 
   /**
-   * Execute a single AI command
-   */
-  const executeCommand = useCallback(async (command: AICommand): Promise<boolean> => {
-    try {
-      console.log('⚡ Executing command:', command.intent, command.entities);
-
-      switch (command.intent) {
-        case 'create':
-          return executeCreateCommand(command);
-        
-        case 'delete':
-          return executeDeleteCommand(command);
-        
-        case 'move':
-          return executeMoveCommand(command);
-        
-        case 'resize':
-          return executeResizeCommand(command);
-        
-        case 'rotate':
-          return executeRotateCommand(command);
-        
-        case 'changeColor':
-          return executeChangeColorCommand(command);
-        
-        case 'arrange':
-          return executeArrangeCommand(command);
-        
-        case 'grid':
-          return executeGridCommand(command);
-        
-        case 'stack':
-          return executeStackCommand(command);
-        
-        case 'complex':
-          // Complex commands are already broken down into multiple create commands by AI
-          return executeCreateCommand(command);
-        
-        default:
-          console.warn('Unknown command intent:', command.intent);
-          return false;
-      }
-    } catch (error) {
-      console.error('Error executing command:', error);
-      return false;
-    }
-  }, []);
-
-  /**
    * Execute CREATE command
    * For AI-created shapes, we use createShapeWithHistory for defaults,
    * then immediately apply customizations to preserve rendering order
@@ -386,11 +345,17 @@ export function useAIAgent(
   const executeDeleteCommand = useCallback((command: AICommand): boolean => {
     const { entities } = command;
     
+    console.log('🗑️ Delete command entities:', entities);
+    console.log('🗑️ Query:', entities.query);
+    console.log('🗑️ All shapes:', shapes.map(s => ({id: s.id, type: s.type, color: s.fill})));
+    
     // Find shapes matching query
-    const matchingShapes = findShapesByQuery(entities.query);
+    const matchingShapes = findShapesByQuery(shapes, entities.query);
     
     if (matchingShapes.length === 0) {
       console.warn('No shapes found matching query');
+      console.warn('Query was:', entities.query);
+      console.warn('Available shapes:', shapes.length);
       return false;
     }
 
@@ -398,7 +363,7 @@ export function useAIAgent(
     const idsToDelete = matchingShapes.map(s => s.id);
     deleteShapesWithHistory(idsToDelete);
     return true;
-  }, [findShapesByQuery, deleteShapesWithHistory]);
+  }, [shapes, findShapesByQuery, deleteShapesWithHistory]);
 
   /**
    * Execute MOVE command
@@ -406,16 +371,22 @@ export function useAIAgent(
   const executeMoveCommand = useCallback((command: AICommand): boolean => {
     const { entities } = command;
     
+    console.log('📍 Move command entities:', entities);
+    console.log('📍 Query:', entities.query);
+    console.log('📍 All shapes:', shapes.map(s => ({id: s.id, type: s.type, color: s.fill})));
+    
     if (!entities.position) {
       console.error('Missing position for move command');
       return false;
     }
 
     // Find shapes to move
-    const shapesToMove = findShapesByQuery(entities.query);
+    const shapesToMove = findShapesByQuery(shapes, entities.query);
 
     if (shapesToMove.length === 0) {
       console.warn('No shapes found to move');
+      console.warn('Query was:', entities.query);
+      console.warn('Available shapes:', shapes.length);
       return false;
     }
 
@@ -432,7 +403,7 @@ export function useAIAgent(
 
     updateShapesWithHistory(ids, oldStates, newStates);
     return true;
-  }, [findShapesByQuery, updateShapesWithHistory]);
+  }, [shapes, findShapesByQuery, updateShapesWithHistory]);
 
   /**
    * Execute RESIZE command
@@ -440,36 +411,53 @@ export function useAIAgent(
   const executeResizeCommand = useCallback((command: AICommand): boolean => {
     const { entities } = command;
     
-    if (!entities.size) {
+    if (!entities.size || typeof entities.size !== 'object') {
       console.error('Missing size for resize command');
       return false;
     }
 
     // Find shapes to resize
-    const shapesToResize = findShapesByQuery(entities.query);
+    const shapesToResize = findShapesByQuery(shapes, entities.query);
 
     if (shapesToResize.length === 0) {
       console.warn('No shapes found to resize');
       return false;
     }
 
-    // Update size based on shape type
-    const updates: Partial<CanvasObject> = {};
-    
-    if ('width' in entities.size && 'height' in entities.size) {
-      updates.width = entities.size.width;
-      updates.height = entities.size.height;
-    } else if ('radius' in entities.size) {
-      updates.radius = entities.size.radius;
-    }
-
+    // Prepare updates for each shape
     const ids = shapesToResize.map(s => s.id);
     const oldStates = new Map(shapesToResize.map(s => [s.id, { width: s.width, height: s.height, radius: s.radius }]));
-    const newStates = new Map(ids.map(id => [id, updates]));
+    const newStates = new Map<string, Partial<CanvasObject>>();
+
+    shapesToResize.forEach(shape => {
+      const updates: Partial<CanvasObject> = {};
+      
+      // Handle absolute sizes
+      if (entities.size.width !== undefined && entities.size.height !== undefined) {
+        updates.width = entities.size.width;
+        updates.height = entities.size.height;
+      } else if (entities.size.radius !== undefined) {
+        updates.radius = entities.size.radius;
+      } else if (entities.size.scale !== undefined) {
+        // Handle relative sizing with scale factor
+        const scaleFactor = entities.size.scale;
+        if (shape.type === 'circle') {
+          const currentRadius = shape.radius || 50;
+          updates.radius = Math.round(currentRadius * scaleFactor);
+        } else if (shape.type === 'rectangle' || shape.type === 'triangle') {
+          const currentWidth = shape.width || 150;
+          const currentHeight = shape.height || 100;
+          updates.width = Math.round(currentWidth * scaleFactor);
+          updates.height = Math.round(currentHeight * scaleFactor);
+        }
+      }
+      
+      newStates.set(shape.id, updates);
+    });
 
     updateShapesWithHistory(ids, oldStates, newStates);
     return true;
-  }, [findShapesByQuery, updateShapesWithHistory]);
+  }, [shapes, findShapesByQuery, updateShapesWithHistory]);
 
   /**
    * Execute ROTATE command
@@ -483,7 +471,7 @@ export function useAIAgent(
     }
 
     // Find shapes to rotate
-    const shapesToRotate = findShapesByQuery(entities.query);
+    const shapesToRotate = findShapesByQuery(shapes, entities.query);
 
     if (shapesToRotate.length === 0) {
       console.warn('No shapes found to rotate');
@@ -497,7 +485,7 @@ export function useAIAgent(
 
     updateShapesWithHistory(ids, oldStates, newStates);
     return true;
-  }, [findShapesByQuery, updateShapesWithHistory]);
+  }, [shapes, findShapesByQuery, updateShapesWithHistory]);
 
   /**
    * Execute CHANGE COLOR command
@@ -511,7 +499,7 @@ export function useAIAgent(
     }
 
     // Find shapes to recolor
-    const shapesToRecolor = findShapesByQuery(entities.query);
+    const shapesToRecolor = findShapesByQuery(shapes, entities.query);
 
     if (shapesToRecolor.length === 0) {
       console.warn('No shapes found to recolor');
@@ -525,7 +513,7 @@ export function useAIAgent(
 
     updateShapesWithHistory(ids, oldStates, newStates);
     return true;
-  }, [findShapesByQuery, updateShapesWithHistory]);
+  }, [shapes, findShapesByQuery, updateShapesWithHistory]);
 
   /**
    * Execute ARRANGE command (horizontal or vertical row)
@@ -643,6 +631,66 @@ export function useAIAgent(
       }
     });
   }, [executeArrangeCommand]);
+
+  /**
+   * Execute a single AI command
+   * Defined after all execute functions to avoid circular dependency
+   */
+  const executeCommand = useCallback(async (command: AICommand): Promise<boolean> => {
+    try {
+      console.log('⚡ Executing command:', command.intent, command.entities);
+
+      switch (command.intent) {
+        case 'create':
+          return executeCreateCommand(command);
+        
+        case 'delete':
+          return executeDeleteCommand(command);
+        
+        case 'move':
+          return executeMoveCommand(command);
+        
+        case 'resize':
+          return executeResizeCommand(command);
+        
+        case 'rotate':
+          return executeRotateCommand(command);
+        
+        case 'changeColor':
+          return executeChangeColorCommand(command);
+        
+        case 'arrange':
+          return executeArrangeCommand(command);
+        
+        case 'grid':
+          return executeGridCommand(command);
+        
+        case 'stack':
+          return executeStackCommand(command);
+        
+        case 'complex':
+          // Complex commands are already broken down into multiple create commands by AI
+          return executeCreateCommand(command);
+        
+        default:
+          console.warn('Unknown command intent:', command.intent);
+          return false;
+      }
+    } catch (error) {
+      console.error('Error executing command:', error);
+      return false;
+    }
+  }, [
+    executeCreateCommand,
+    executeDeleteCommand,
+    executeMoveCommand,
+    executeResizeCommand,
+    executeRotateCommand,
+    executeChangeColorCommand,
+    executeArrangeCommand,
+    executeGridCommand,
+    executeStackCommand,
+  ]);
 
   return {
     processCommand,
