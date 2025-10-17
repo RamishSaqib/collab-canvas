@@ -41,3 +41,7 @@ ui-debug.log
 # Testing
 coverage
 *.tsbuildinfo
+
+# Internal docs (not for version control)
+AI-TESTING-CHECKLIST.md
+ARCHITECTURE-SYNC.md
