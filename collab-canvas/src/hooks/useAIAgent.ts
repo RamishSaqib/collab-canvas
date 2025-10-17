@@ -89,6 +89,38 @@ export function useAIAgent(
   }, [shapes, selectedShapeIds, updateShapesWithHistory, batchCreateShapesWithHistory]);
 
   /**
+   * Find shapes matching a query
+   */
+  const findShapesByQuery = useCallback((query?: ShapeQuery): CanvasObject[] => {
+    if (!query) return [];
+
+    let matchingShapes = [...shapes];
+
+    // Filter by selection first
+    if (query.selected === true) {
+      matchingShapes = matchingShapes.filter(s => selectedShapeIds.includes(s.id));
+    }
+
+    // Filter by type
+    if (query.type && query.type !== 'all') {
+      matchingShapes = matchingShapes.filter(s => s.type === query.type);
+    }
+
+    // Filter by color (hex comparison)
+    if (query.color) {
+      matchingShapes = matchingShapes.filter(s => s.fill.toLowerCase() === query.color!.toLowerCase());
+    }
+
+    // Filter by position area (if implemented later)
+    if (query.position) {
+      // Could implement: center, top-left, etc.
+      // For now, skip this filter
+    }
+
+    return matchingShapes;
+  }, [shapes, selectedShapeIds]);
+
+  /**
    * Execute batch create for multiple shapes (for better undo/redo)
    */
   const executeBatchCreate = useCallback(async (commands: AICommand[], description: string): Promise<boolean> => {
@@ -337,7 +369,7 @@ export function useAIAgent(
     const { entities } = command;
     
     // Find shapes matching query
-    const matchingShapes = findShapesByQuery(shapes, entities.query);
+    const matchingShapes = findShapesByQuery(entities.query);
     
     if (matchingShapes.length === 0) {
       console.warn('No shapes found matching query');
@@ -348,7 +380,7 @@ export function useAIAgent(
     const idsToDelete = matchingShapes.map(s => s.id);
     deleteShapesWithHistory(idsToDelete);
     return true;
-  }, [shapes, deleteShapesWithHistory]);
+  }, [findShapesByQuery, deleteShapesWithHistory]);
 
   /**
    * Execute MOVE command
@@ -362,26 +394,27 @@ export function useAIAgent(
     }
 
     // Find shapes to move
-    const shapesToMove = entities.query 
-      ? findShapesByQuery(shapes, entities.query)
-      : shapes.filter(s => selectedShapeIds.includes(s.id));
+    const shapesToMove = findShapesByQuery(entities.query);
 
     if (shapesToMove.length === 0) {
       console.warn('No shapes found to move');
       return false;
     }
 
+    // Convert grid coordinates to Konva coordinates
+    const konvaPos = gridToKonva(entities.position.x, entities.position.y);
+
     // Update positions
     const ids = shapesToMove.map(s => s.id);
     const oldStates = new Map(shapesToMove.map(s => [s.id, { x: s.x, y: s.y }]));
     const newStates = new Map(ids.map(id => [id, {
-      x: entities.position!.x,
-      y: entities.position!.y,
+      x: konvaPos.x,
+      y: konvaPos.y,
     }]));
 
     updateShapesWithHistory(ids, oldStates, newStates);
     return true;
-  }, [shapes, selectedShapeIds, updateShapesWithHistory]);
+  }, [findShapesByQuery, updateShapesWithHistory]);
 
   /**
    * Execute RESIZE command
@@ -395,9 +428,7 @@ export function useAIAgent(
     }
 
     // Find shapes to resize
-    const shapesToResize = entities.query 
-      ? findShapesByQuery(shapes, entities.query)
-      : shapes.filter(s => selectedShapeIds.includes(s.id));
+    const shapesToResize = findShapesByQuery(entities.query);
 
     if (shapesToResize.length === 0) {
       console.warn('No shapes found to resize');
@@ -420,7 +451,7 @@ export function useAIAgent(
 
     updateShapesWithHistory(ids, oldStates, newStates);
     return true;
-  }, [shapes, selectedShapeIds, updateShapesWithHistory]);
+  }, [findShapesByQuery, updateShapesWithHistory]);
 
   /**
    * Execute ROTATE command
@@ -434,9 +465,7 @@ export function useAIAgent(
     }
 
     // Find shapes to rotate
-    const shapesToRotate = entities.query 
-      ? findShapesByQuery(shapes, entities.query)
-      : shapes.filter(s => selectedShapeIds.includes(s.id));
+    const shapesToRotate = findShapesByQuery(entities.query);
 
     if (shapesToRotate.length === 0) {
       console.warn('No shapes found to rotate');
@@ -450,7 +479,7 @@ export function useAIAgent(
 
     updateShapesWithHistory(ids, oldStates, newStates);
     return true;
-  }, [shapes, selectedShapeIds, updateShapesWithHistory]);
+  }, [findShapesByQuery, updateShapesWithHistory]);
 
   /**
    * Execute CHANGE COLOR command
@@ -464,9 +493,7 @@ export function useAIAgent(
     }
 
     // Find shapes to recolor
-    const shapesToRecolor = entities.query 
-      ? findShapesByQuery(shapes, entities.query)
-      : shapes.filter(s => selectedShapeIds.includes(s.id));
+    const shapesToRecolor = findShapesByQuery(entities.query);
 
     if (shapesToRecolor.length === 0) {
       console.warn('No shapes found to recolor');
@@ -480,7 +507,7 @@ export function useAIAgent(
 
     updateShapesWithHistory(ids, oldStates, newStates);
     return true;
-  }, [shapes, selectedShapeIds, updateShapesWithHistory]);
+  }, [findShapesByQuery, updateShapesWithHistory]);
 
   /**
    * Execute ARRANGE command (horizontal or vertical row)
@@ -488,9 +515,7 @@ export function useAIAgent(
   const executeArrangeCommand = useCallback((command: AICommand): boolean => {
     const { entities } = command;
     
-    const shapesToArrange = entities.query 
-      ? findShapesByQuery(shapes, entities.query)
-      : shapes.filter(s => selectedShapeIds.includes(s.id));
+    const shapesToArrange = findShapesByQuery(entities.query);
 
     if (shapesToArrange.length < 2) {
       console.warn('Need at least 2 shapes to arrange');
@@ -525,7 +550,7 @@ export function useAIAgent(
 
     updateShapesWithHistory(ids, oldStates, newStates);
     return true;
-  }, [shapes, selectedShapeIds, updateShapesWithHistory]);
+  }, [findShapesByQuery, updateShapesWithHistory]);
 
   /**
    * Execute GRID command (create NxN grid of shapes)
@@ -600,49 +625,6 @@ export function useAIAgent(
       }
     });
   }, [executeArrangeCommand]);
-
-  /**
-   * Find shapes matching a query
-   */
-  const findShapesByQuery = useCallback((allShapes: CanvasObject[], query?: ShapeQuery): CanvasObject[] => {
-    if (!query) return allShapes;
-
-    return allShapes.filter(shape => {
-      // Filter by type
-      if (query.type && query.type !== 'all' && shape.type !== query.type) {
-        return false;
-      }
-
-      // Filter by color
-      if (query.color && shape.fill !== query.color) {
-        return false;
-      }
-
-      // Filter by selected
-      if (query.selected && !selectedShapeIds.includes(shape.id)) {
-        return false;
-      }
-
-      // Filter by position (approximate)
-      if (query.position) {
-        const threshold = 100; // pixels
-        switch (query.position) {
-          case 'center':
-            return Math.abs(shape.x - 400) < threshold && Math.abs(shape.y - 300) < threshold;
-          case 'top-left':
-            return shape.x < 200 && shape.y < 200;
-          case 'top-right':
-            return shape.x > 600 && shape.y < 200;
-          case 'bottom-left':
-            return shape.x < 200 && shape.y > 400;
-          case 'bottom-right':
-            return shape.x > 600 && shape.y > 400;
-        }
-      }
-
-      return true;
-    });
-  }, [selectedShapeIds]);
 
   return {
     processCommand,

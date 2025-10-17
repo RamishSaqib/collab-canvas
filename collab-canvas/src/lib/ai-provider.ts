@@ -87,6 +87,41 @@ EXAMPLES:
 "Create button at (100, -50)":
 {"success":true,"commands":[{"intent":"create","entities":{"shapeType":"rectangle","position":{"x":25,"y":-25},"size":{"width":150,"height":50},"color":"#667eea"}},{"intent":"create","entities":{"shapeType":"text","position":{"x":56,"y":-41},"text":"Click Me","fontSize":18,"color":"#ffffff"}}]}
 
+MANIPULATION COMMANDS:
+
+"Delete the red circle":
+{"success":true,"commands":[{"intent":"delete","entities":{"query":{"color":"#ff0000","type":"circle"}}}]}
+
+"Delete all circles":
+{"success":true,"commands":[{"intent":"delete","entities":{"query":{"type":"circle"}}}]}
+
+"Delete selected shapes":
+{"success":true,"commands":[{"intent":"delete","entities":{"query":{"selected":true}}}]}
+
+"Move the blue circle to (50, 100)":
+{"success":true,"commands":[{"intent":"move","entities":{"query":{"color":"#0000ff","type":"circle"},"position":{"x":50,"y":100}}}]}
+
+"Move selected shapes 20 pixels right":
+{"success":true,"commands":[{"intent":"move","entities":{"query":{"selected":true},"position":{"x":20,"y":0}}}]}
+
+"Make the rectangle 200 by 150":
+{"success":true,"commands":[{"intent":"resize","entities":{"query":{"type":"rectangle"},"size":{"width":200,"height":150}}}]}
+
+"Make the circle bigger":
+{"success":true,"commands":[{"intent":"resize","entities":{"query":{"type":"circle"},"size":{"radius":75}}}]}
+
+"Rotate the square 45 degrees":
+{"success":true,"commands":[{"intent":"rotate","entities":{"query":{"type":"rectangle"},"rotation":45}}]}
+
+"Rotate selected shapes 90 degrees":
+{"success":true,"commands":[{"intent":"rotate","entities":{"query":{"selected":true},"rotation":90}}]}
+
+"Change the circle to blue":
+{"success":true,"commands":[{"intent":"changeColor","entities":{"query":{"type":"circle"},"color":"#0000ff"}}]}
+
+"Make selected shapes red":
+{"success":true,"commands":[{"intent":"changeColor","entities":{"query":{"selected":true},"color":"#ff0000"}}]}
+
 RULES:
 - Rectangle: width=150, height=100
 - Circle: radius=50
@@ -215,6 +250,31 @@ RULES:
   * ⚠️ CRITICAL: Rectangle BEFORE text
 - ALWAYS create meaningful text labels, NEVER use default "Text"
 - ⚠️ FINAL REMINDER: Text shapes MUST ALWAYS be created AFTER all rectangles/circles!
+
+MANIPULATION COMMAND RULES:
+- QUERY SYSTEM: Use "query" field to find shapes
+  * By type: {"query":{"type":"circle"}} - finds all circles
+  * By color: {"query":{"color":"#ff0000"}} - finds all red shapes
+  * By selection: {"query":{"selected":true}} - uses currently selected shapes
+  * Combined: {"query":{"type":"rectangle","color":"#0000ff"}} - blue rectangles only
+- DELETE: Remove shapes matching query
+  * Examples: "delete the red circle", "delete all circles", "delete selected"
+- MOVE: Change position (absolute or relative)
+  * Absolute: {"position":{"x":100,"y":50}} - move TO (100, 50)
+  * Relative: {"position":{"x":20,"y":0}} - move BY 20 pixels right
+  * If query returns multiple shapes, all move together
+- RESIZE: Change size
+  * Rectangle: {"size":{"width":200,"height":150}}
+  * Circle: {"size":{"radius":75}}
+  * Relative keywords: "bigger" = +25%, "smaller" = -25%
+- ROTATE: Change rotation angle
+  * Absolute: {"rotation":45} - rotate TO 45 degrees
+  * Relative: {"rotation":90} - rotate BY 90 degrees (if current rotation exists)
+  * Degrees are clockwise, 0 = no rotation
+- CHANGE COLOR: Update fill color
+  * Use hex colors: {"color":"#0000ff"} for blue
+  * Works with all named colors from COLORS list above
+
 - ONLY return JSON, no explanations`;
 
 /**
