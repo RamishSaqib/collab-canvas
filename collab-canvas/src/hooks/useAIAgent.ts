@@ -95,20 +95,31 @@ export function useAIAgent(
     if (!query) return [];
 
     let matchingShapes = [...shapes];
+    
+    console.log('🔍 Query:', query, 'Total shapes:', shapes.length);
 
     // Filter by selection first
     if (query.selected === true) {
       matchingShapes = matchingShapes.filter(s => selectedShapeIds.includes(s.id));
+      console.log('  After selection filter:', matchingShapes.length);
     }
 
     // Filter by type
     if (query.type && query.type !== 'all') {
       matchingShapes = matchingShapes.filter(s => s.type === query.type);
+      console.log('  After type filter (' + query.type + '):', matchingShapes.length);
     }
 
-    // Filter by color (hex comparison)
+    // Filter by color (case-insensitive hex comparison, handle both formats)
     if (query.color) {
-      matchingShapes = matchingShapes.filter(s => s.fill.toLowerCase() === query.color!.toLowerCase());
+      const queryColor = query.color.toLowerCase();
+      matchingShapes = matchingShapes.filter(s => {
+        const shapeColor = s.fill.toLowerCase();
+        // Handle both #rgb and #rrggbb formats
+        return shapeColor === queryColor || 
+               shapeColor.replace('#', '') === queryColor.replace('#', '');
+      });
+      console.log('  After color filter (' + query.color + '):', matchingShapes.length);
     }
 
     // Filter by position area (if implemented later)
@@ -117,6 +128,7 @@ export function useAIAgent(
       // For now, skip this filter
     }
 
+    console.log('✅ Final matches:', matchingShapes.length);
     return matchingShapes;
   }, [shapes, selectedShapeIds]);
 
@@ -143,12 +155,18 @@ export function useAIAgent(
           x = konvaPos.x;
           y = konvaPos.y;
         } else {
-          // No position provided - use viewport center
+          // No position provided - use viewport center with offset for multiple shapes
           const scale = stageScale || 1;
           const posX = stagePos?.x || 0;
           const posY = stagePos?.y || 0;
-          x = (CANVAS_WIDTH / 2 - posX) / scale;
-          y = (CANVAS_HEIGHT / 2 - posY) / scale;
+          const baseX = (CANVAS_WIDTH / 2 - posX) / scale;
+          const baseY = (CANVAS_HEIGHT / 2 - posY) / scale;
+          
+          // Add offset for multiple shapes to prevent stacking
+          // Offset diagonally: 30px right and 30px down per shape
+          const offset = i * 30;
+          x = baseX + offset;
+          y = baseY + offset;
         }
 
         // Add shape spec
