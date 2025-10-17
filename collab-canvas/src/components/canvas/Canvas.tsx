@@ -48,9 +48,11 @@ interface CanvasProps {
   onCloseColorPicker: () => void;
   onGenerateTestShapes?: (count: number) => void;
   onClearAllShapes?: () => void;
+  onStageReady?: (stage: Konva.Stage) => void;
+  onShapesChange?: () => void;
 }
 
-export default function Canvas({ user, projectId, mode, onModeChange, selectedColor, onColorChange, showColorPicker, onCloseColorPicker, onGenerateTestShapes, onClearAllShapes }: CanvasProps) {
+export default function Canvas({ user, projectId, mode, onModeChange, selectedColor, onColorChange, showColorPicker, onCloseColorPicker, onGenerateTestShapes, onClearAllShapes, onStageReady, onShapesChange }: CanvasProps) {
   const [stageSize, setStageSize] = useState(fitStageToWindow());
   const [stageScale, setStageScale] = useState(1);
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
@@ -70,6 +72,13 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
   const isPanningRef = useRef(false);
   const didPanRef = useRef(false); // Track if user actually moved during pan
   const isSelectingRef = useRef(false); // Track if user is drawing selection box
+
+  // Notify parent when stage is ready
+  useEffect(() => {
+    if (stageRef.current && onStageReady) {
+      onStageReady(stageRef.current);
+    }
+  }, [onStageReady]);
   const lastPanPositionRef = useRef({ x: 0, y: 0 });
   const textInputRef = useRef<HTMLInputElement>(null);
   
@@ -80,7 +89,6 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
     batchCreateShapes,
     updateShape,
     updateShapes,
-    batchDeleteShapes,
     duplicateShapes,
     selectShapes,
     toggleShapeSelection,
@@ -100,6 +108,40 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
     updateShapesWithHistory,
   } = useCanvas({ user, projectId });
 
+  // Track if we should suppress change notifications (e.g., during AI operations)
+  const suppressChangeNotificationRef = useRef(false);
+
+  // Wrap shape modification functions to notify parent of changes
+  const wrappedCreateShape = useCallback((...args: Parameters<typeof createShapeWithHistory>) => {
+    const result = createShapeWithHistory(...args);
+    if (!suppressChangeNotificationRef.current) {
+      onShapesChange?.();
+    }
+    return result;
+  }, [createShapeWithHistory, onShapesChange]);
+
+  const wrappedBatchCreate = useCallback((...args: Parameters<typeof batchCreateShapesWithHistory>) => {
+    const result = batchCreateShapesWithHistory(...args);
+    if (!suppressChangeNotificationRef.current) {
+      onShapesChange?.();
+    }
+    return result;
+  }, [batchCreateShapesWithHistory, onShapesChange]);
+
+  const wrappedUpdateShapes = useCallback((...args: Parameters<typeof updateShapesWithHistory>) => {
+    updateShapesWithHistory(...args);
+    if (!suppressChangeNotificationRef.current) {
+      onShapesChange?.();
+    }
+  }, [updateShapesWithHistory, onShapesChange]);
+
+  const wrappedDeleteShapes = useCallback((...args: Parameters<typeof deleteShapesWithHistory>) => {
+    deleteShapesWithHistory(...args);
+    if (!suppressChangeNotificationRef.current) {
+      onShapesChange?.();
+    }
+  }, [deleteShapesWithHistory, onShapesChange]);
+
   // AI Agent for natural language commands
   const {
     processCommand: processAICommand,
@@ -109,17 +151,32 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
     shapes,
     selectedShapeIds,
     user.id,
-    createShapeWithHistory,
-    batchCreateShapesWithHistory,
-    updateShapesWithHistory,
-    deleteShapesWithHistory,
+    wrappedCreateShape,
+    wrappedBatchCreate,
+    wrappedUpdateShapes,
+    wrappedDeleteShapes,
     stagePosition,
     stageScale
   );
 
+  // Wrap AI command to suppress change notifications during execution
+  const wrappedAICommand = useCallback(async (command: string) => {
+    suppressChangeNotificationRef.current = true;
+    try {
+      const result = await processAICommand(command);
+      // Only notify of changes if the command succeeded
+      if (result.success) {
+        onShapesChange?.();
+      }
+      return result;
+    } finally {
+      suppressChangeNotificationRef.current = false;
+    }
+  }, [processAICommand, onShapesChange]);
+
   // Expose AI command handler via window for App to access
   useEffect(() => {
-    (window as any).__processAICommand = processAICommand;
+    (window as any).__processAICommand = wrappedAICommand;
     (window as any).__isAIProcessing = isAIProcessing;
     (window as any).__aiError = aiError;
     
@@ -128,7 +185,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
       delete (window as any).__isAIProcessing;
       delete (window as any).__aiError;
     };
-  }, [processAICommand, isAIProcessing, aiError]);
+  }, [wrappedAICommand, isAIProcessing, aiError]);
 
   const { otherCursors, broadcastCursor } = useCursors({
     projectId,
@@ -432,7 +489,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
         if (selectedShapeIds.length > 0) {
           e.preventDefault(); // Prevent browser back navigation on Backspace
           // Use history-enabled deletion for undo/redo support
-          deleteShapesWithHistory(selectedShapeIds);
+          wrappedDeleteShapes(selectedShapeIds);
           console.log('🗑️ Deleted', selectedShapeIds.length, 'shape(s)');
           
           // Show deletion feedback
@@ -472,7 +529,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onModeChange, clearSelection, deleteShapesWithHistory, duplicateShapes, selectAll, updateShapes, selectedShapeIds, editingTextId, user.id, shapes, activeSelectionIndex, stageScale, undo, redo, canUndo, canRedo]);
+  }, [onModeChange, clearSelection, wrappedDeleteShapes, duplicateShapes, selectAll, updateShapes, selectedShapeIds, editingTextId, user.id, shapes, activeSelectionIndex, stageScale, undo, redo, canUndo, canRedo]);
 
   // Determine if text format bar should be shown and get common formatting
   const selectedTextShapes = useMemo(() => {
@@ -719,14 +776,14 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
         if (stage) {
           const pos = getRelativePointerPosition(stage);
           // Use history-enabled creation for undo/redo support
-          createShapeWithHistory(pos.x, pos.y, user.id, mode, selectedColor);
+          wrappedCreateShape(pos.x, pos.y, user.id, mode, selectedColor);
         }
       } else if (mode === 'select' && !e.evt.shiftKey && !didPanRef.current) {
         // Only deselect if: not holding Shift AND didn't pan the canvas
         clearSelection();
       }
     }
-  }, [mode, createShapeWithHistory, clearSelection, user.id, selectedColor]);
+  }, [mode, wrappedCreateShape, clearSelection, user.id, selectedColor]);
 
   // Manual panning or selection box: Handle mouse down on stage - memoized
   const handleStageMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -945,12 +1002,23 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
   const clearAllShapes = useCallback(async () => {
     if (window.confirm(`Delete all ${shapes.length} shapes and ${comments.length} comments?`)) {
       const allIds = shapes.map(s => s.id);
-      // Delete all shapes
-      await batchDeleteShapes(allIds);
-      // Delete all comments
-      await Promise.all(comments.map(c => deleteComment(c.id)));
+      // Suppress change notifications - Clear All persists immediately and will auto-save thumbnail
+      suppressChangeNotificationRef.current = true;
+      try {
+        // Delete all shapes (already persists to Firestore via real-time sync)
+        await deleteShapesWithHistory(allIds);
+        // Delete all comments
+        await Promise.all(comments.map(c => deleteComment(c.id)));
+        console.log('🧹 Clear All: Complete - will auto-save thumbnail');
+      } finally {
+        suppressChangeNotificationRef.current = false;
+        // Trigger auto-save of empty canvas thumbnail via special callback
+        if ((window as any).__autoSaveAfterClear) {
+          (window as any).__autoSaveAfterClear();
+        }
+      }
     }
-  }, [shapes, comments, batchDeleteShapes, deleteComment]);
+  }, [shapes, comments, deleteShapesWithHistory, deleteComment]);
 
   // Call the prop callbacks when functions are invoked
   useEffect(() => {

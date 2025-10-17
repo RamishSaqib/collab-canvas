@@ -24,7 +24,7 @@ const SYSTEM_PROMPT = `You are a canvas AI. Parse commands into JSON. ALWAYS ret
 SHAPES: rectangle, circle, triangle, text
 COMMANDS: create, delete, move, resize, rotate, changeColor, arrange, grid, stack, complex
 
-COLORS: red=#ff0000, blue=#0000ff, green=#00ff00, purple=#667eea, white=#ffffff, black=#000000
+COLORS: red=#ff0000, blue=#0000ff, green=#00ff00, yellow=#ffff00, orange=#ffa500, purple=#667eea, pink=#ff69b4, white=#ffffff, black=#000000, gray=#808080
 
 COORDINATE SYSTEM (GRID):
 - (0, 0) is at the canvas CENTER
@@ -381,7 +381,20 @@ export async function parseCommand(
 
     // Validate response structure
     if (!aiResponse.commands || !Array.isArray(aiResponse.commands)) {
-      throw new Error('Invalid response format: missing commands array');
+      console.error('❌ Invalid AI Response Structure:', aiResponse);
+      console.error('📋 Response Keys:', Object.keys(aiResponse));
+      console.error('📄 Full Response Text:', responseText);
+      
+      // Return error response instead of throwing
+      return {
+        success: false,
+        commands: [],
+        error: 'AI returned unexpected format. Please try rephrasing your command.',
+        suggestions: [
+          'Try: "Create a yellow triangle"',
+          'Try: "Add 3 red circles"',
+        ]
+      };
     }
 
     // Add confidence scores (based on model response)

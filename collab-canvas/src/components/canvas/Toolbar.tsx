@@ -21,11 +21,28 @@ interface ToolbarProps {
   onAICommand?: (command: string) => Promise<{ success: boolean; message: string }>;
   isAIProcessing?: boolean;
   aiError?: string | null;
+  // Save functionality
+  onSave?: () => void;
+  isSaving?: boolean;
+  hasUnsavedChanges?: boolean;
+  lastSaved?: Date | null;
 }
 
-export default function Toolbar({ user, onSignOut, onBackToProjects, mode, onModeChange, selectedColor, showColorPicker, onToggleColorPicker, onGenerateTestShapes, onClearAllShapes, shapeCount, onAICommand, isAIProcessing, aiError }: ToolbarProps) {
+export default function Toolbar({ user, onSignOut, onBackToProjects, mode, onModeChange, selectedColor, showColorPicker, onToggleColorPicker, onGenerateTestShapes, onClearAllShapes, shapeCount, onAICommand, isAIProcessing, aiError, onSave, isSaving, hasUnsavedChanges, lastSaved }: ToolbarProps) {
   const handleToolClick = (tool: CanvasMode) => {
     onModeChange(tool);
+  };
+
+  const getSaveButtonText = () => {
+    if (isSaving) return 'Saving...';
+    if (hasUnsavedChanges) return 'Save Project';
+    return 'Saved';
+  };
+
+  const getSaveButtonClass = () => {
+    if (isSaving) return 'save-btn save-btn-saving';
+    if (hasUnsavedChanges) return 'save-btn save-btn-unsaved';
+    return 'save-btn save-btn-saved';
   };
 
   return (
@@ -127,6 +144,36 @@ export default function Toolbar({ user, onSignOut, onBackToProjects, mode, onMod
               isProcessing={isAIProcessing || false}
               lastError={aiError || null}
             />
+            <div className="toolbar-divider"></div>
+          </>
+        )}
+
+        {/* Save Button */}
+        {onSave && (
+          <>
+            <button
+              className={getSaveButtonClass()}
+              onClick={onSave}
+              disabled={isSaving || !hasUnsavedChanges}
+              title={lastSaved ? `Last saved: ${lastSaved.toLocaleTimeString()}` : 'Save project'}
+            >
+              {isSaving && (
+                <svg className="save-spinner" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" strokeDasharray="10 20" />
+                </svg>
+              )}
+              {!isSaving && hasUnsavedChanges && (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M13 2H3c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h10c.55 0 1-.45 1-1V3c0-.55-.45-1-1-1zm-2 10H5V9h6v3zm0-4H5V5h6v3z"/>
+                </svg>
+              )}
+              {!isSaving && !hasUnsavedChanges && (
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/>
+                </svg>
+              )}
+              <span>{getSaveButtonText()}</span>
+            </button>
             <div className="toolbar-divider"></div>
           </>
         )}

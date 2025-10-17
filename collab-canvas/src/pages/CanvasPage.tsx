@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { signOut } from '../lib/firebase';
 import Canvas, { type CanvasMode } from '../components/canvas/Canvas';
 import Toolbar from '../components/canvas/Toolbar';
 import Sidebar from '../components/canvas/Sidebar';
 import ConnectionStatusBanner from '../components/ConnectionStatusBanner';
+import { useThumbnail } from '../hooks/useThumbnail';
+import { useProjects } from '../hooks/useProjects';
 import type { User } from '../lib/types';
+import type Konva from 'konva';
 import '../App.css';
 
 interface CanvasPageProps {
@@ -18,6 +21,16 @@ export default function CanvasPage({ user }: CanvasPageProps) {
   const [mode, setMode] = useState<CanvasMode>('select');
   const [selectedColor, setSelectedColor] = useState('#667eea');
   const [showColorPicker, setShowColorPicker] = useState(false);
+  
+  // Save functionality
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isAIProcessing, setIsAIProcessing] = useState(false);
+  const stageRef = useRef<Konva.Stage | null>(null);
+  
+  const { generateThumbnail } = useThumbnail();
+  const { updateProject } = useProjects({ userId: user.id });
 
   // Redirect if no projectId
   useEffect(() => {
@@ -36,13 +49,54 @@ export default function CanvasPage({ user }: CanvasPageProps) {
   };
 
   const handleBackToProjects = () => {
-    // TODO: Check for unsaved changes before navigating
-    navigate('/projects');
+    if (hasUnsavedChanges) {
+      if (window.confirm('You have unsaved changes. Do you want to save before leaving?')) {
+        // Save and then navigate
+        handleSave().then(() => {
+          navigate('/projects');
+        });
+      } else {
+        // Navigate without saving
+        navigate('/projects');
+      }
+    } else {
+      navigate('/projects');
+    }
   };
 
   const toggleColorPicker = () => {
     setShowColorPicker(!showColorPicker);
   };
+
+  // Handle save project
+  const handleSave = useCallback(async () => {
+    if (!projectId || !stageRef.current || isSaving) return;
+
+    setIsSaving(true);
+    try {
+      // Generate thumbnail
+      const thumbnailUrl = await generateThumbnail(stageRef.current);
+      
+      // Update project with thumbnail and lastAccessedAt
+      await updateProject(projectId, {
+        thumbnailUrl: thumbnailUrl || undefined,
+        lastAccessedAt: Date.now(),
+      });
+
+      setHasUnsavedChanges(false);
+      setLastSaved(new Date());
+      console.log('✅ Project saved successfully');
+    } catch (error) {
+      console.error('❌ Error saving project:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [projectId, generateThumbnail, updateProject, isSaving]);
+
+  // Track when shapes change
+  const handleShapesChange = useCallback(() => {
+    setHasUnsavedChanges(true);
+  }, []);
 
   const handleGenerateTestShapes = (count: number) => {
     if ((window as any).__generateTestShapes) {
@@ -56,19 +110,35 @@ export default function CanvasPage({ user }: CanvasPageProps) {
     }
   };
 
-  const handleAICommand = async (command: string): Promise<{ success: boolean; message: string }> => {
-    if ((window as any).__processAICommand) {
-      return await (window as any).__processAICommand(command);
-    }
-    return { success: false, message: 'AI agent not initialized' };
-  };
-
-  const getAIStatus = () => {
-    return {
-      isProcessing: (window as any).__isAIProcessing || false,
-      error: (window as any).__aiError || null,
+  // Auto-save thumbnail after Clear All (since shapes are already persisted via real-time sync)
+  useEffect(() => {
+    (window as any).__autoSaveAfterClear = () => {
+      // Wait a bit for shapes to be deleted, then save empty thumbnail
+      setTimeout(() => {
+        if (stageRef.current && projectId) {
+          handleSave();
+        }
+      }, 500);
     };
-  };
+
+    return () => {
+      delete (window as any).__autoSaveAfterClear;
+    };
+  }, [handleSave, projectId]);
+
+  const handleAICommand = useCallback(async (command: string): Promise<{ success: boolean; message: string }> => {
+    if (!(window as any).__processAICommand) {
+      return { success: false, message: 'AI agent not initialized' };
+    }
+    
+    setIsAIProcessing(true);
+    try {
+      const result = await (window as any).__processAICommand(command);
+      return result;
+    } finally {
+      setIsAIProcessing(false);
+    }
+  }, []);
 
   // Keyboard shortcut for color picker
   useEffect(() => {
@@ -107,8 +177,12 @@ export default function CanvasPage({ user }: CanvasPageProps) {
         onClearAllShapes={handleClearAllShapes}
         shapeCount={0}
         onAICommand={handleAICommand}
-        isAIProcessing={getAIStatus().isProcessing}
-        aiError={getAIStatus().error}
+        isAIProcessing={isAIProcessing}
+        aiError={(window as any).__aiError || null}
+        onSave={handleSave}
+        isSaving={isSaving}
+        hasUnsavedChanges={hasUnsavedChanges}
+        lastSaved={lastSaved}
       />
       <ConnectionStatusBanner />
       <div className="main-content">
@@ -124,6 +198,8 @@ export default function CanvasPage({ user }: CanvasPageProps) {
             onCloseColorPicker={() => setShowColorPicker(false)}
             onGenerateTestShapes={handleGenerateTestShapes}
             onClearAllShapes={handleClearAllShapes}
+            onStageReady={(stage: Konva.Stage) => { stageRef.current = stage; }}
+            onShapesChange={handleShapesChange}
           />
         </div>
         <Sidebar currentUser={user} projectId={projectId} />

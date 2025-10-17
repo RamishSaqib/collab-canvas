@@ -6,6 +6,7 @@ import {
   onSnapshot, 
   addDoc, 
   deleteDoc,
+  updateDoc,
   doc,
   serverTimestamp,
   Timestamp
@@ -119,12 +120,40 @@ export function useProjects({ userId }: UseProjectsProps) {
     }
   }, []);
 
+  /**
+   * Update a project (for saving thumbnail, renaming, favoriting, etc.)
+   */
+  const updateProject = useCallback(async (
+    projectId: string,
+    updates: Partial<Omit<Project, 'id' | 'createdBy' | 'createdAt'>>
+  ): Promise<boolean> => {
+    if (!db) {
+      setError('Firestore not initialized');
+      return false;
+    }
+    
+    try {
+      const projectRef = doc(db, 'projects', projectId);
+      await updateDoc(projectRef, {
+        ...updates,
+        lastModifiedAt: Date.now(),
+      });
+      console.log('✅ Project updated:', projectId);
+      return true;
+    } catch (err) {
+      console.error('❌ Error updating project:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update project');
+      return false;
+    }
+  }, []);
+
   return {
     projects,
     loading,
     error,
     createProject,
     deleteProject,
+    updateProject,
   };
 }
 

@@ -217,6 +217,63 @@
   border-color: #cbd5e0;
 }
 
+/* Save Button */
+.save-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+}
+
+.save-btn-unsaved {
+  color: #667eea;
+  border-color: #667eea;
+}
+
+.save-btn-unsaved:hover:not(:disabled) {
+  background: #f0f4ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.save-btn-saved {
+  color: #10b981;
+  border-color: #d1fae5;
+  background: #f0fdf4;
+  cursor: default;
+}
+
+.save-btn-saving {
+  color: #667eea;
+  border-color: #667eea;
+  cursor: wait;
+}
+
+.save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.save-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .toolbar {
@@ -241,6 +298,10 @@
   }
 
   .user-name-small {
+    display: none;
+  }
+  
+  .save-btn span {
     display: none;
   }
 }
