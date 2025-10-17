@@ -12,6 +12,7 @@ export function useAIAgent(
   selectedShapeIds: string[],
   userId: string,
   createShapeWithHistory: (x: number, y: number, createdBy: string, type?: 'rectangle' | 'circle' | 'triangle' | 'text', color?: string) => CanvasObject,
+  batchCreateShapesWithHistory: (specs: Array<{ x: number; y: number; createdBy: string; type?: 'rectangle' | 'circle' | 'triangle' | 'text'; color?: string }>, description?: string) => CanvasObject[],
   updateShapesWithHistory: (ids: string[], oldStates: Map<string, Partial<CanvasObject>>, newStates: Map<string, Partial<CanvasObject>>) => void,
   deleteShapesWithHistory: (ids: string[]) => void,
   stagePos?: { x: number; y: number },
@@ -44,7 +45,24 @@ export function useAIAgent(
         };
       }
 
-      // Execute all commands
+      // Check if all commands are "create" commands - if so, batch them
+      const allCreateCommands = aiResponse.commands.every(cmd => cmd.intent === 'create');
+      
+      if (allCreateCommands && aiResponse.commands.length > 1) {
+        // Batch create all shapes at once for better undo/redo
+        const success = await executeBatchCreate(aiResponse.commands, userInput);
+        
+        setLastCommand(userInput);
+        setCommandHistory(prev => [userInput, ...prev].slice(0, 10));
+        
+        const message = `Created ${aiResponse.commands.length} shapes`;
+        console.log('✅', message);
+        
+        setIsProcessing(false);
+        return { success, message };
+      }
+      
+      // Execute commands individually (mixed commands or single command)
       let executedCount = 0;
       for (const command of aiResponse.commands) {
         const success = await executeCommand(command);
@@ -68,7 +86,109 @@ export function useAIAgent(
       setIsProcessing(false);
       return { success: false, message: errorMessage };
     }
-  }, [shapes, selectedShapeIds, updateShapesWithHistory]);
+  }, [shapes, selectedShapeIds, updateShapesWithHistory, batchCreateShapesWithHistory]);
+
+  /**
+   * Execute batch create for multiple shapes (for better undo/redo)
+   */
+  const executeBatchCreate = useCallback(async (commands: AICommand[], description: string): Promise<boolean> => {
+    try {
+      // Step 1: Collect all shape specs
+      const shapeSpecs: Array<{ x: number; y: number; createdBy: string; type?: 'rectangle' | 'circle' | 'triangle' | 'text'; color?: string }> = [];
+      const customizations: Map<number, Partial<CanvasObject>> = new Map(); // index -> customizations
+
+      for (let i = 0; i < commands.length; i++) {
+        const command = commands[i];
+        const { entities } = command;
+
+        // Calculate position
+        let x: number;
+        let y: number;
+
+        if (entities.position && typeof entities.position.x === 'number' && typeof entities.position.y === 'number') {
+          // AI provided grid coordinates - convert to Konva coordinates
+          const konvaPos = gridToKonva(entities.position.x, entities.position.y);
+          x = konvaPos.x;
+          y = konvaPos.y;
+        } else {
+          // No position provided - use viewport center
+          const scale = stageScale || 1;
+          const posX = stagePos?.x || 0;
+          const posY = stagePos?.y || 0;
+          x = (CANVAS_WIDTH / 2 - posX) / scale;
+          y = (CANVAS_HEIGHT / 2 - posY) / scale;
+        }
+
+        // Add shape spec
+        shapeSpecs.push({
+          x,
+          y,
+          createdBy: userId,
+          type: entities.shapeType || 'rectangle',
+          color: entities.color || undefined,
+        });
+
+        // Collect customizations for this shape
+        const customs: Partial<CanvasObject> = {};
+        
+        // Text content
+        if (entities.text) {
+          customs.text = entities.text;
+        }
+        
+        // Font size
+        if (entities.fontSize) {
+          customs.fontSize = entities.fontSize;
+        }
+        
+        // Size
+        if (entities.size) {
+          if ('radius' in entities.size) {
+            customs.radius = entities.size.radius;
+          } else {
+            customs.width = entities.size.width;
+            customs.height = entities.size.height;
+          }
+        }
+
+        // zIndex based on shape type (text on top)
+        const baseZIndex = entities.shapeType === 'text' ? 1000 : 0;
+        customs.zIndex = baseZIndex + Date.now() % 1000;
+
+        if (Object.keys(customs).length > 0) {
+          customizations.set(i, customs);
+        }
+      }
+
+      // Step 2: Batch create all shapes
+      const createdShapes = batchCreateShapesWithHistory(shapeSpecs, description);
+
+      // Step 3: Apply customizations if any
+      if (customizations.size > 0) {
+        const shapeIds: string[] = [];
+        const oldStates = new Map<string, Partial<CanvasObject>>();
+        const newStates = new Map<string, Partial<CanvasObject>>();
+
+        createdShapes.forEach((shape, index) => {
+          const customs = customizations.get(index);
+          if (customs) {
+            shapeIds.push(shape.id);
+            oldStates.set(shape.id, {}); // Empty old state (defaults)
+            newStates.set(shape.id, customs);
+          }
+        });
+
+        if (shapeIds.length > 0) {
+          updateShapesWithHistory(shapeIds, oldStates, newStates);
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error('❌ Batch create error:', error);
+      return false;
+    }
+  }, [batchCreateShapesWithHistory, updateShapesWithHistory, userId, stagePos, stageScale]);
 
   /**
    * Execute a single AI command

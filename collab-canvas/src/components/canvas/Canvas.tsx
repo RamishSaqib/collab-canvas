@@ -94,6 +94,7 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     canUndo,
     canRedo,
     createShapeWithHistory,
+    batchCreateShapesWithHistory,
     deleteShapesWithHistory,
     updateShapesWithHistory,
   } = useCanvas({ user });
@@ -108,6 +109,7 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     selectedShapeIds,
     user.id,
     createShapeWithHistory,
+    batchCreateShapesWithHistory,
     updateShapesWithHistory,
     deleteShapesWithHistory,
     stagePosition,

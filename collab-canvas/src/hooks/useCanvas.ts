@@ -9,6 +9,7 @@ import {
   CreateShapeCommand,
   DeleteShapeCommand,
   UpdateShapeCommand,
+  MultiShapeCommand,
   // MoveShapeCommand, // TODO: Add when implementing drag command
   // TransformShapeCommand, // TODO: Add when implementing transform command
 } from '../utils/commands';
@@ -42,6 +43,7 @@ interface UseCanvasReturn {
   canRedo: boolean;
   // Command-based operations for undo/redo support
   createShapeWithHistory: (x: number, y: number, createdBy: string, type?: 'rectangle' | 'circle' | 'triangle' | 'text', color?: string) => CanvasObject;
+  batchCreateShapesWithHistory: (specs: Array<{ x: number; y: number; createdBy: string; type?: 'rectangle' | 'circle' | 'triangle' | 'text'; color?: string }>, description?: string) => CanvasObject[];
   deleteShapesWithHistory: (ids: string[]) => void;
   updateShapesWithHistory: (ids: string[], oldStates: Map<string, Partial<CanvasObject>>, newStates: Map<string, Partial<CanvasObject>>) => void;
 }
@@ -576,6 +578,82 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
   }, [addShapeToState, removeShapeFromState, history]);
 
   /**
+   * Batch create multiple shapes with undo/redo support
+   * All shapes are created as a single undoable operation
+   */
+  const batchCreateShapesWithHistory = useCallback((
+    specs: Array<{ x: number; y: number; createdBy: string; type?: 'rectangle' | 'circle' | 'triangle' | 'text'; color?: string }>,
+    description?: string
+  ): CanvasObject[] => {
+    if (specs.length === 0) return [];
+
+    const commands: CreateShapeCommand[] = [];
+    const createdShapes: CanvasObject[] = [];
+
+    // Create commands for all shapes
+    for (const spec of specs) {
+      const { x, y, createdBy, type = 'rectangle', color } = spec;
+
+      const baseShape: Partial<CanvasObject> = {
+        id: crypto.randomUUID(),
+        type,
+        x,
+        y,
+        fill: color || generateRandomColor(),
+        rotation: 0,
+        zIndex: 0,
+        createdBy,
+        lastModifiedBy: createdBy,
+        lastModifiedAt: Date.now(),
+      };
+
+      let newShape: CanvasObject;
+
+      // Set type-specific properties
+      switch (type) {
+        case 'circle':
+          newShape = { ...baseShape, radius: 50 } as CanvasObject;
+          break;
+        case 'triangle':
+          newShape = { ...baseShape, width: 100, height: 100 } as CanvasObject;
+          break;
+        case 'text':
+          newShape = { ...baseShape, text: 'Text', fontSize: 24, fontStyle: 'normal', textAlign: 'left' } as CanvasObject;
+          break;
+        case 'rectangle':
+        default:
+          newShape = { ...baseShape, width: 150, height: 100 } as CanvasObject;
+          break;
+      }
+
+      createdShapes.push(newShape);
+      
+      const command = new CreateShapeCommand(
+        newShape,
+        addShapeToState,
+        removeShapeFromState
+      );
+      commands.push(command);
+    }
+
+    // Execute all commands as a single batch
+    if (commands.length === 1) {
+      // Single shape, execute normally
+      history.executeCommand(commands[0]);
+    } else {
+      // Multiple shapes, wrap in MultiShapeCommand
+      const batchCommand = new MultiShapeCommand(commands);
+      // Override description if provided
+      if (description) {
+        batchCommand.getDescription = () => description;
+      }
+      history.executeCommand(batchCommand);
+    }
+
+    return createdShapes;
+  }, [addShapeToState, removeShapeFromState, history]);
+
+  /**
    * Delete shapes with undo/redo support
    */
   const deleteShapesWithHistory = useCallback((ids: string[]) => {
@@ -637,6 +715,7 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
     canRedo: history.canRedo,
     // Command-based operations
     createShapeWithHistory,
+    batchCreateShapesWithHistory,
     deleteShapesWithHistory,
     updateShapesWithHistory,
   };

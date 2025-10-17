@@ -89,6 +89,32 @@ export function useHistory() {
   }, [canRedo, history.redoStack]);
 
   /**
+   * Execute multiple commands as a single batch operation
+   * Useful for AI-generated commands that create multiple shapes
+   */
+  const executeBatch = useCallback((commands: Command[], description?: string) => {
+    if (commands.length === 0) return;
+    
+    if (commands.length === 1) {
+      // Single command, execute normally
+      executeCommand(commands[0]);
+      return;
+    }
+
+    // Multiple commands, wrap in a batch command
+    // Import MultiShapeCommand from commands.ts
+    const { MultiShapeCommand } = require('../utils/commands');
+    const batchCommand = new MultiShapeCommand(commands);
+    
+    // Override description if provided
+    if (description) {
+      batchCommand.getDescription = () => description;
+    }
+    
+    executeCommand(batchCommand);
+  }, [executeCommand]);
+
+  /**
    * Clear all history
    */
   const clearHistory = useCallback(() => {
@@ -100,6 +126,7 @@ export function useHistory() {
 
   return {
     executeCommand,
+    executeBatch,
     undo,
     redo,
     canUndo,
