@@ -3,9 +3,8 @@ import { ref, onValue, set, onDisconnect, off } from 'firebase/database';
 import { rtdb } from '../lib/firebase';
 import type { Presence } from '../lib/types';
 
-const CANVAS_ID = 'main-canvas'; // Same as cursors and Firestore
-
 interface UsePresenceProps {
+  projectId: string;
   userId: string;
   userName: string;
   userColor: string;
@@ -15,7 +14,7 @@ interface UsePresenceProps {
  * Hook for tracking online users (presence awareness)
  * Uses Firebase Realtime Database with automatic disconnect handling
  */
-export function usePresence({ userId, userName, userColor }: UsePresenceProps) {
+export function usePresence({ projectId, userId, userName, userColor }: UsePresenceProps) {
   const [onlineUsers, setOnlineUsers] = useState<Presence[]>([]);
   const disconnectHandlerSetRef = useRef(false);
 
@@ -28,7 +27,7 @@ export function usePresence({ userId, userName, userColor }: UsePresenceProps) {
       return;
     }
 
-    const presenceRef = ref(rtdb, `presence/${CANVAS_ID}/${userId}`);
+    const presenceRef = ref(rtdb, `presence/${projectId}/${userId}`);
     const presenceData: Presence = {
       userId,
       userName,
@@ -68,7 +67,7 @@ export function usePresence({ userId, userName, userColor }: UsePresenceProps) {
       broadcastPresence();
     }, 30000);
 
-    const presenceRef = ref(rtdb, `presence/${CANVAS_ID}`);
+    const presenceRef = ref(rtdb, `presence/${projectId}`);
 
     const handlePresenceUpdate = (snapshot: any) => {
       const users: Presence[] = [];
@@ -107,12 +106,12 @@ export function usePresence({ userId, userName, userColor }: UsePresenceProps) {
       off(presenceRef);
       
       // Remove own presence on unmount
-      const userPresenceRef = ref(rtdb!, `presence/${CANVAS_ID}/${userId}`);
+      const userPresenceRef = ref(rtdb!, `presence/${projectId}/${userId}`);
       set(userPresenceRef, null).catch((error) => {
         console.error('Failed to remove presence on unmount:', error);
       });
     };
-  }, [userId, broadcastPresence]);
+  }, [projectId, userId, broadcastPresence]);
 
   return {
     onlineUsers,

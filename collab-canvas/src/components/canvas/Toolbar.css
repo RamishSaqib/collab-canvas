@@ -20,6 +20,26 @@
   gap: 20px;
 }
 
+.back-button {
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #667eea;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.back-button:hover {
+  background: #f7fafc;
+  border-color: #667eea;
+}
+
 .toolbar-title {
   font-size: 1.25rem;
   font-weight: 700;

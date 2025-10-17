@@ -4,7 +4,6 @@ import type { Unsubscribe } from 'firebase/database';
 import { rtdb } from '../lib/firebase';
 import { throttle } from '../utils/performance';
 
-const CANVAS_ID = 'main-canvas';
 const UPDATE_THROTTLE_MS = 16; // ~60 Hz (60 FPS)
 const STALE_THRESHOLD_MS = 5000; // 5 seconds
 const CLEANUP_INTERVAL_MS = 10000; // 10 seconds
@@ -21,10 +20,10 @@ export interface ActiveShape {
 }
 
 export interface UseRealtimeSyncProps {
+  projectId: string;
   userId: string;
   userName: string;
   userColor: string;
-  canvasId?: string;
 }
 
 /**
@@ -34,10 +33,10 @@ export interface UseRealtimeSyncProps {
  * Performance: ~10-20ms latency vs ~350ms with Firestore only
  */
 export function useRealtimeSync({ 
+  projectId,
   userId, 
   userName, 
   userColor,
-  canvasId = CANVAS_ID 
 }: UseRealtimeSyncProps) {
   
   const cleanupIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -51,8 +50,8 @@ export function useRealtimeSync({
       console.warn('Realtime Database not initialized');
       return null;
     }
-    return ref(rtdb, `active-shapes/${canvasId}`);
-  }, [canvasId]);
+    return ref(rtdb, `active-shapes/${projectId}`);
+  }, [projectId]);
 
   /**
    * Get reference to specific active shape
@@ -62,8 +61,8 @@ export function useRealtimeSync({
       console.warn('Realtime Database not initialized');
       return null;
     }
-    return ref(rtdb, `active-shapes/${canvasId}/${shapeId}`);
-  }, [canvasId]);
+    return ref(rtdb, `active-shapes/${projectId}/${shapeId}`);
+  }, [projectId]);
 
   /**
    * Update active shape position (throttled to 60 FPS)

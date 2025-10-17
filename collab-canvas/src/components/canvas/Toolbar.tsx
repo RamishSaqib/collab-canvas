@@ -9,6 +9,7 @@ interface ToolbarProps {
     color: string;
   };
   onSignOut: () => void;
+  onBackToProjects?: () => void;
   mode: CanvasMode;
   onModeChange: (mode: CanvasMode) => void;
   selectedColor: string;
@@ -22,7 +23,7 @@ interface ToolbarProps {
   aiError?: string | null;
 }
 
-export default function Toolbar({ user, onSignOut, mode, onModeChange, selectedColor, showColorPicker, onToggleColorPicker, onGenerateTestShapes, onClearAllShapes, shapeCount, onAICommand, isAIProcessing, aiError }: ToolbarProps) {
+export default function Toolbar({ user, onSignOut, onBackToProjects, mode, onModeChange, selectedColor, showColorPicker, onToggleColorPicker, onGenerateTestShapes, onClearAllShapes, shapeCount, onAICommand, isAIProcessing, aiError }: ToolbarProps) {
   const handleToolClick = (tool: CanvasMode) => {
     onModeChange(tool);
   };
@@ -30,6 +31,15 @@ export default function Toolbar({ user, onSignOut, mode, onModeChange, selectedC
   return (
     <div className="toolbar">
       <div className="toolbar-left">
+        {onBackToProjects && (
+          <button 
+            className="back-button" 
+            onClick={onBackToProjects}
+            title="Back to Projects"
+          >
+            ← Projects
+          </button>
+        )}
         <h1 className="toolbar-title">CollabCanvas</h1>
         <div className="toolbar-divider"></div>
         <div className="toolbar-tools">

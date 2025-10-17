@@ -39,6 +39,7 @@ interface CanvasProps {
     email: string;
     color: string;
   };
+  projectId: string;
   mode: CanvasMode;
   onModeChange: (mode: CanvasMode) => void;
   selectedColor: string;
@@ -49,7 +50,7 @@ interface CanvasProps {
   onClearAllShapes?: () => void;
 }
 
-export default function Canvas({ user, mode, onModeChange, selectedColor, onColorChange, showColorPicker, onCloseColorPicker, onGenerateTestShapes, onClearAllShapes }: CanvasProps) {
+export default function Canvas({ user, projectId, mode, onModeChange, selectedColor, onColorChange, showColorPicker, onCloseColorPicker, onGenerateTestShapes, onClearAllShapes }: CanvasProps) {
   const [stageSize, setStageSize] = useState(fitStageToWindow());
   const [stageScale, setStageScale] = useState(1);
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
@@ -97,7 +98,7 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     batchCreateShapesWithHistory,
     deleteShapesWithHistory,
     updateShapesWithHistory,
-  } = useCanvas({ user });
+  } = useCanvas({ user, projectId });
 
   // AI Agent for natural language commands
   const {
@@ -130,12 +131,14 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
   }, [processAICommand, isAIProcessing, aiError]);
 
   const { otherCursors, broadcastCursor } = useCursors({
+    projectId,
     userId: user.id,
     userName: user.name,
     userColor: user.color,
   });
 
   const { onlineUsers } = usePresence({
+    projectId,
     userId: user.id,
     userName: user.name,
     userColor: user.color,
@@ -147,8 +150,7 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     return otherCursors.filter(cursor => onlineUserIds.has(cursor.userId));
   }, [otherCursors, onlineUsers]);
 
-  // Comments system - using a fixed canvas ID for now
-  const CANVAS_ID = 'default-canvas';
+  // Comments system
   const {
     comments,
     createComment,
@@ -156,7 +158,7 @@ export default function Canvas({ user, mode, onModeChange, selectedColor, onColo
     toggleResolveComment,
     deleteComment,
   } = useComments({
-    canvasId: CANVAS_ID,
+    projectId: projectId,
     userId: user.id,
   });
   

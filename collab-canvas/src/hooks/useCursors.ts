@@ -3,10 +3,10 @@ import { ref, onValue, set, onDisconnect, off } from 'firebase/database';
 import { rtdb } from '../lib/firebase';
 import type { CursorPosition } from '../lib/types';
 
-const CANVAS_ID = 'main-canvas'; // Same as Firestore
 const THROTTLE_MS = 33; // ~30 updates/second
 
 interface UseCursorsProps {
+  projectId: string;
   userId: string;
   userName: string;
   userColor: string;
@@ -16,7 +16,7 @@ interface UseCursorsProps {
  * Hook for tracking and broadcasting cursor positions
  * Uses Firebase Realtime Database for fast cursor updates
  */
-export function useCursors({ userId, userName, userColor }: UseCursorsProps) {
+export function useCursors({ projectId, userId, userName, userColor }: UseCursorsProps) {
   const [otherCursors, setOtherCursors] = useState<CursorPosition[]>([]);
   const lastBroadcastTimeRef = useRef<number>(0);
   const disconnectHandlerSetRef = useRef(false);
@@ -38,7 +38,7 @@ export function useCursors({ userId, userName, userColor }: UseCursorsProps) {
 
     lastBroadcastTimeRef.current = now;
 
-    const cursorRef = ref(rtdb, `cursors/${CANVAS_ID}/${userId}`);
+    const cursorRef = ref(rtdb, `cursors/${projectId}/${userId}`);
     const cursorData: CursorPosition = {
       userId,
       userName,
@@ -72,7 +72,7 @@ export function useCursors({ userId, userName, userColor }: UseCursorsProps) {
 
     console.log('Setting up cursor subscription...');
 
-    const cursorsRef = ref(rtdb, `cursors/${CANVAS_ID}`);
+    const cursorsRef = ref(rtdb, `cursors/${projectId}`);
 
     const handleCursorsUpdate = (snapshot: any) => {
       const cursors: CursorPosition[] = [];
@@ -103,12 +103,12 @@ export function useCursors({ userId, userName, userColor }: UseCursorsProps) {
       off(cursorsRef);
       
       // Remove own cursor on unmount
-      const cursorRef = ref(rtdb!, `cursors/${CANVAS_ID}/${userId}`);
+      const cursorRef = ref(rtdb!, `cursors/${projectId}/${userId}`);
       set(cursorRef, null).catch((error) => {
         console.error('Failed to remove cursor on unmount:', error);
       });
     };
-  }, [userId]);
+  }, [projectId, userId]);
 
   return {
     otherCursors,

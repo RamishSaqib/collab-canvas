@@ -5,6 +5,7 @@ import './Sidebar.css';
 
 interface SidebarProps {
   currentUser: User;
+  projectId: string;
 }
 
 interface UserItemProps {
@@ -35,8 +36,9 @@ UserItem.displayName = 'UserItem';
  * Sidebar component showing online users
  * Optimized with memoization for better performance
  */
-function Sidebar({ currentUser }: SidebarProps) {
+function Sidebar({ currentUser, projectId }: SidebarProps) {
   const { onlineUsers } = usePresence({
+    projectId,
     userId: currentUser.id,
     userName: currentUser.name,
     userColor: currentUser.color,

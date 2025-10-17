@@ -50,14 +50,15 @@ interface UseCanvasReturn {
 
 interface UseCanvasProps {
   user: User;
+  projectId: string;
 }
 
-export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
+export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn {
   const [firestoreShapes, setFirestoreShapes] = useState<CanvasObject[]>([]);
   const [activeShapes, setActiveShapes] = useState<Map<string, ActiveShape>>(new Map());
   const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([]);
   
-  const { saveObject, updateObject, deleteObject, batchSaveObjects, batchDeleteObjects, subscribeToObjects, flushAllUpdates } = useFirestore();
+  const { saveObject, updateObject, deleteObject, batchSaveObjects, batchDeleteObjects, subscribeToObjects, flushAllUpdates } = useFirestore({ projectId });
   const {
     updateActivePosition,
     updateActiveText,
@@ -66,6 +67,7 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
     subscribeToActiveShapes,
     isAvailable: isRTDBAvailable,
   } = useRealtimeSync({
+    projectId,
     userId: user.id,
     userName: user.name,
     userColor: user.color,
@@ -562,7 +564,8 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
         break;
       case 'rectangle':
       default:
-        newShape = { ...baseShape, width: 150, height: 100 } as CanvasObject;
+        // Center the rectangle at the click position (like circles and triangles)
+        newShape = { ...baseShape, x: x - 75, y: y - 50, width: 150, height: 100 } as CanvasObject;
         break;
     }
 
@@ -622,7 +625,8 @@ export function useCanvas({ user }: UseCanvasProps): UseCanvasReturn {
           break;
         case 'rectangle':
         default:
-          newShape = { ...baseShape, width: 150, height: 100 } as CanvasObject;
+          // Center the rectangle at the click position (like circles and triangles)
+          newShape = { ...baseShape, x: x - 75, y: y - 50, width: 150, height: 100 } as CanvasObject;
           break;
       }
 

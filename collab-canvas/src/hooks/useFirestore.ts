@@ -15,8 +15,6 @@ import type { CanvasObject } from '../lib/types';
 import { useOperationQueue, type QueuedOperation } from './useOperationQueue';
 import { useConnectionStatus } from './useConnectionStatus';
 
-const CANVAS_ID = 'main-canvas'; // Single shared canvas for MVP
-
 // Debounce helper
 interface PendingUpdate {
   objectId: string;
@@ -32,6 +30,10 @@ const pendingUpdates = new Map<string, PendingUpdate>();
 // This Firestore debounce only applies to final state persistence
 const DEBOUNCE_MS = 100; // Reduced from 300ms → 100ms for immediate improvement
 
+interface UseFirestoreProps {
+  projectId: string;
+}
+
 /**
  * Firestore persistence hook for canvas objects
  * Manages save, update, delete, and real-time sync operations
@@ -40,28 +42,28 @@ const DEBOUNCE_MS = 100; // Reduced from 300ms → 100ms for immediate improveme
  * Performance: 100ms debounce provides good balance between
  * responsiveness and write operation costs
  */
-export function useFirestore() {
+export function useFirestore({ projectId }: UseFirestoreProps) {
   const { isOnline } = useConnectionStatus();
-  const { queueOperation, processQueue } = useOperationQueue();
+  const { queueOperation, processQueue} = useOperationQueue();
   
   /**
-   * Get reference to objects collection for the main canvas
+   * Get reference to shapes collection for the project
    */
   const getObjectsCollection = () => {
     if (!db) {
       throw new Error('Firestore not initialized');
     }
-    return collection(db, 'canvases', CANVAS_ID, 'objects');
+    return collection(db, 'projects', projectId, 'shapes');
   };
 
   /**
-   * Get reference to a specific object document
+   * Get reference to a specific shape document
    */
   const getObjectDoc = (objectId: string) => {
     if (!db) {
       throw new Error('Firestore not initialized');
     }
-    return doc(db, 'canvases', CANVAS_ID, 'objects', objectId);
+    return doc(db, 'projects', projectId, 'shapes', objectId);
   };
 
   /**
@@ -318,6 +320,5 @@ export function useFirestore() {
     subscribeToObjects,
     flushUpdate,
     flushAllUpdates,
-    canvasId: CANVAS_ID
   };
 }

@@ -141,3 +141,20 @@ export interface AIResponse {
   error?: string;
   suggestions?: string[];
 }
+
+// Project Management Types
+export interface Project {
+  id: string;
+  name: string;
+  createdBy: string;          // User ID
+  createdAt: number;          // Timestamp
+  lastModifiedAt: number;     // Timestamp
+  lastAccessedAt: number;     // For "Recent" sorting
+  isFavorite: boolean;        // User's favorite flag
+  thumbnailUrl?: string;      // Firebase Storage URL
+  hasUnsavedChanges?: boolean; // Client-side only
+}
+
+export type ProjectSortOption = 'lastAccessed' | 'created' | 'alphabetical';
+export type ProjectFilterOption = 'all' | 'favorites' | 'recent';
+export type ProjectViewMode = 'grid' | 'list';
