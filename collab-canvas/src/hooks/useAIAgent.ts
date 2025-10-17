@@ -431,16 +431,17 @@ export function useAIAgent(
 
     shapesToResize.forEach(shape => {
       const updates: Partial<CanvasObject> = {};
+      const size = entities.size!; // Already validated above
       
       // Handle absolute sizes
-      if (entities.size.width !== undefined && entities.size.height !== undefined) {
-        updates.width = entities.size.width;
-        updates.height = entities.size.height;
-      } else if (entities.size.radius !== undefined) {
-        updates.radius = entities.size.radius;
-      } else if (entities.size.scale !== undefined) {
+      if (size.width !== undefined && size.height !== undefined) {
+        updates.width = size.width;
+        updates.height = size.height;
+      } else if (size.radius !== undefined) {
+        updates.radius = size.radius;
+      } else if (size.scale !== undefined) {
         // Handle relative sizing with scale factor
-        const scaleFactor = entities.size.scale;
+        const scaleFactor = size.scale;
         if (shape.type === 'circle') {
           const currentRadius = shape.radius || 50;
           updates.radius = Math.round(currentRadius * scaleFactor);
@@ -521,7 +522,7 @@ export function useAIAgent(
   const executeArrangeCommand = useCallback((command: AICommand): boolean => {
     const { entities } = command;
     
-    const shapesToArrange = findShapesByQuery(entities.query);
+    const shapesToArrange = findShapesByQuery(shapes, entities.query);
 
     if (shapesToArrange.length < 2) {
       console.warn('Need at least 2 shapes to arrange');
@@ -556,7 +557,7 @@ export function useAIAgent(
 
     updateShapesWithHistory(ids, oldStates, newStates);
     return true;
-  }, [findShapesByQuery, updateShapesWithHistory]);
+  }, [shapes, findShapesByQuery, updateShapesWithHistory]);
 
   /**
    * Execute GRID command (create NxN grid of shapes)
