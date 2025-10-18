@@ -26,52 +26,118 @@ export function useProjects({ userId }: UseProjectsProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Subscribe to user's projects
+  // Subscribe to user's projects (owned + shared)
   useEffect(() => {
     if (!userId || !db) {
       setLoading(false);
       return;
     }
 
-    const projectsQuery = query(
+    // We need to fetch both:
+    // 1. Projects created by the user
+    // 2. Projects where the user is a collaborator
+    // Since we can't do OR queries easily, we'll merge results from both queries
+    
+    const projectsMap = new Map<string, Project>();
+    let ownedUnsubscribe: (() => void) | null = null;
+    let sharedUnsubscribe: (() => void) | null = null;
+    let loadedCount = 0;
+
+    const updateProjects = () => {
+      const projectsData = Array.from(projectsMap.values());
+      // Sort client-side by createdAt (newest first)
+      projectsData.sort((a, b) => b.createdAt - a.createdAt);
+      setProjects(projectsData);
+      setLoading(false);
+      setError(null);
+    };
+
+    const mapDocToProject = (doc: any): Project => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        name: data.name,
+        createdBy: data.createdBy,
+        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toMillis() : data.createdAt,
+        lastModifiedAt: data.lastModifiedAt instanceof Timestamp ? data.lastModifiedAt.toMillis() : data.lastModifiedAt,
+        lastAccessedAt: data.lastAccessedAt instanceof Timestamp ? data.lastAccessedAt.toMillis() : data.lastAccessedAt,
+        isFavorite: data.isFavorite || false,
+        thumbnailUrl: data.thumbnailUrl,
+        collaborators: data.collaborators || [],
+        isPublic: data.isPublic || false,
+      };
+    };
+
+    // Query 1: Projects created by user
+    const ownedQuery = query(
       collection(db, 'projects'),
       where('createdBy', '==', userId)
-      // Note: orderBy with where requires a composite index
-      // For now, we'll sort client-side to avoid index requirements
     );
 
-    const unsubscribe = onSnapshot(
-      projectsQuery,
+    ownedUnsubscribe = onSnapshot(
+      ownedQuery,
       (snapshot) => {
-        const projectsData: Project[] = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            name: data.name,
-            createdBy: data.createdBy,
-            createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toMillis() : data.createdAt,
-            lastModifiedAt: data.lastModifiedAt instanceof Timestamp ? data.lastModifiedAt.toMillis() : data.lastModifiedAt,
-            lastAccessedAt: data.lastAccessedAt instanceof Timestamp ? data.lastAccessedAt.toMillis() : data.lastAccessedAt,
-            isFavorite: data.isFavorite || false,
-            thumbnailUrl: data.thumbnailUrl,
-            collaborators: data.collaborators || [],
-            isPublic: data.isPublic || false,
-          };
+        snapshot.docs.forEach(doc => {
+          projectsMap.set(doc.id, mapDocToProject(doc));
         });
-        // Sort client-side by createdAt (newest first)
-        projectsData.sort((a, b) => b.createdAt - a.createdAt);
-        setProjects(projectsData);
-        setLoading(false);
-        setError(null);
+        // Remove deleted projects
+        const ownedIds = new Set(snapshot.docs.map(doc => doc.id));
+        Array.from(projectsMap.keys()).forEach(id => {
+          const project = projectsMap.get(id);
+          if (project && project.createdBy === userId && !ownedIds.has(id)) {
+            projectsMap.delete(id);
+          }
+        });
+        
+        loadedCount++;
+        if (loadedCount >= 2) updateProjects();
       },
       (err) => {
-        console.error('Error fetching projects:', err);
+        console.error('Error fetching owned projects:', err);
         setError(err.message);
         setLoading(false);
       }
     );
 
-    return () => unsubscribe();
+    // Query 2: Projects where user is a collaborator
+    // Use array-contains to efficiently find projects where user is in collaboratorIds array
+    const sharedQuery = query(
+      collection(db, 'projects'),
+      where('collaboratorIds', 'array-contains', userId)
+    );
+
+    sharedUnsubscribe = onSnapshot(
+      sharedQuery,
+      (snapshot) => {
+        snapshot.docs.forEach(doc => {
+          const project = mapDocToProject(doc);
+          // Only include if not the creator (to avoid duplicates with owned query)
+          if (project.createdBy !== userId) {
+            projectsMap.set(doc.id, project);
+          }
+        });
+        // Remove deleted shared projects
+        const sharedIds = new Set(snapshot.docs.map(doc => doc.id));
+        Array.from(projectsMap.keys()).forEach(id => {
+          const project = projectsMap.get(id);
+          if (project && project.createdBy !== userId && !sharedIds.has(id)) {
+            projectsMap.delete(id);
+          }
+        });
+        
+        loadedCount++;
+        if (loadedCount >= 2) updateProjects();
+      },
+      (err) => {
+        console.error('Error fetching shared projects:', err);
+        // Don't set error here, as owned projects might still work
+      }
+    );
+
+    return () => {
+      ownedUnsubscribe?.();
+      sharedUnsubscribe?.();
+    };
   }, [userId]);
 
   /**
@@ -98,6 +164,7 @@ export function useProjects({ userId }: UseProjectsProps) {
             addedAt: Date.now(),
           }
         ],
+        collaboratorIds: [userId], // Flat array for efficient Firestore queries
         isPublic: false,
       });
       
@@ -217,6 +284,15 @@ export function useProjects({ userId }: UseProjectsProps) {
         lastModifiedAt: serverTimestamp(),
         lastAccessedAt: serverTimestamp(),
         isFavorite: false,
+        collaborators: [
+          {
+            userId,
+            role: 'owner',
+            addedAt: Date.now(),
+          }
+        ],
+        collaboratorIds: [userId], // Initialize with owner
+        isPublic: false,
       };
       
       // Only include thumbnailUrl if it exists (Firestore doesn't allow undefined)
@@ -290,6 +366,7 @@ export function useProjects({ userId }: UseProjectsProps) {
       const projectRef = doc(db, 'projects', projectId);
       await updateDoc(projectRef, {
         collaborators: [...project.collaborators, newCollaborator],
+        collaboratorIds: [...(project.collaborators.map(c => c.userId)), email], // Update flat array
         lastModifiedAt: Date.now(),
       });
       
@@ -331,6 +408,7 @@ export function useProjects({ userId }: UseProjectsProps) {
       const projectRef = doc(db, 'projects', projectId);
       await updateDoc(projectRef, {
         collaborators: updatedCollaborators,
+        collaboratorIds: updatedCollaborators.map(c => c.userId), // Update flat array
         lastModifiedAt: Date.now(),
       });
       

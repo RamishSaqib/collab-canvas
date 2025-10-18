@@ -12,14 +12,22 @@ service cloud.firestore {
              projectData.createdBy == request.auth.uid;
     }
     
+    function isCollaborator(projectData) {
+      // Check if user ID is in the collaboratorIds array
+      // This is a flat array of user IDs for efficient querying
+      return 'collaboratorIds' in projectData && 
+             request.auth.uid in projectData.collaboratorIds;
+    }
+    
     function canViewProject(projectData) {
       // User can view if:
       // 1. They are the owner
       // 2. Project is public
-      // Note: More granular collaborator checking is handled in frontend
+      // 3. They are a collaborator (in collaboratorIds array)
       return isAuthenticated() && (
         isOwner(projectData) ||
-        projectData.isPublic == true
+        projectData.isPublic == true ||
+        isCollaborator(projectData)
       );
     }
     
