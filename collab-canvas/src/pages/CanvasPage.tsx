@@ -30,7 +30,10 @@ export default function CanvasPage({ user }: CanvasPageProps) {
   const stageRef = useRef<Konva.Stage | null>(null);
   
   const { generateThumbnail } = useThumbnail();
-  const { updateProject } = useProjects({ userId: user.id });
+  const { projects, updateProject } = useProjects({ userId: user.id });
+  
+  // Get current project
+  const currentProject = projects.find(p => p.id === projectId);
 
   // Redirect if no projectId
   useEffect(() => {
@@ -182,6 +185,7 @@ export default function CanvasPage({ user }: CanvasPageProps) {
         isSaving={isSaving}
         hasUnsavedChanges={hasUnsavedChanges}
         lastSaved={lastSaved}
+        projectName={currentProject?.name || 'Untitled Project'}
       />
       <ConnectionStatusBanner />
       <div className="main-content">

@@ -48,6 +48,11 @@
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
 }
 
 .toolbar-divider {
@@ -314,6 +319,7 @@
 
   .toolbar-title {
     font-size: 1rem;
+    max-width: 200px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -370,6 +376,7 @@
   
   .toolbar-title {
     font-size: 0.9rem;
+    max-width: 150px;
   }
   
   .toolbar-divider {

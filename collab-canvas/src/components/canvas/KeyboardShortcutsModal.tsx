@@ -29,12 +29,13 @@ const shortcuts: Shortcut[] = [
   { keys: ['Shift', 'Click'], description: 'Multi-select (toggle)', category: 'Selection' },
   { keys: ['Drag'], description: 'Draw selection box', category: 'Selection' },
   { keys: ['Ctrl', 'A'], description: 'Select all shapes', category: 'Selection' },
-  { keys: ['← →'], description: 'Navigate between selected shapes', category: 'Selection' },
   
   // Shape Actions
   { keys: ['Delete'], description: 'Delete selected shape(s)', category: 'Shape Actions' },
   { keys: ['Backspace'], description: 'Delete selected shape(s)', category: 'Shape Actions' },
   { keys: ['Ctrl', 'D'], description: 'Duplicate selected shape(s)', category: 'Shape Actions' },
+  { keys: ['↑ ↓ ← →'], description: 'Nudge shape 1px', category: 'Shape Actions' },
+  { keys: ['Shift', '↑ ↓ ← →'], description: 'Nudge shape 10px', category: 'Shape Actions' },
   { keys: ['Ctrl', ']'], description: 'Bring to front', category: 'Shape Actions' },
   { keys: ['Ctrl', '['], description: 'Send to back', category: 'Shape Actions' },
   { keys: ['Drag Handles'], description: 'Resize/rotate shape', category: 'Shape Actions' },

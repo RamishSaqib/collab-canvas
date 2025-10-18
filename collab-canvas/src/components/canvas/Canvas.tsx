@@ -529,29 +529,32 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
         // Show keyboard shortcuts help modal
         e.preventDefault();
         setShowShortcuts(true);
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        // Arrow keys: cycle through selected shapes
-        if (selectedShapeIds.length > 1) {
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        // Arrow keys: nudge selected shapes or cycle through selection
+        if (selectedShapeIds.length > 0) {
           e.preventDefault();
-          const newIndex = e.key === 'ArrowRight' 
-            ? (activeSelectionIndex + 1) % selectedShapeIds.length
-            : (activeSelectionIndex - 1 + selectedShapeIds.length) % selectedShapeIds.length;
           
-          setActiveSelectionIndex(newIndex);
+          // Determine nudge distance (1px normal, 10px with Shift)
+          const nudgeDistance = e.shiftKey ? 10 : 1;
           
-          // Pan to the active shape
-          const activeShapeId = selectedShapeIds[newIndex];
-          const activeShape = shapes.find(s => s.id === activeShapeId);
-          if (activeShape && stageRef.current) {
-            const stage = stageRef.current;
-            const scale = stage.scaleX();
-            
-            // Calculate position to center the shape in viewport
-            const newX = (stage.width() / 2) - (activeShape.x * scale);
-            const newY = (stage.height() / 2) - (activeShape.y * scale);
-            
-            setStagePosition({ x: newX, y: newY });
-          }
+          // Calculate delta based on arrow key
+          let dx = 0;
+          let dy = 0;
+          if (e.key === 'ArrowLeft') dx = -nudgeDistance;
+          if (e.key === 'ArrowRight') dx = nudgeDistance;
+          if (e.key === 'ArrowUp') dy = -nudgeDistance;
+          if (e.key === 'ArrowDown') dy = nudgeDistance;
+          
+          // Nudge all selected shapes
+          selectedShapeIds.forEach(id => {
+            const shape = shapes.find(s => s.id === id);
+            if (shape) {
+              updateShapes([id], {
+                x: shape.x + dx,
+                y: shape.y + dy,
+              });
+            }
+          });
         }
       }
     };
