@@ -20,7 +20,7 @@ interface UseCanvasReturn {
   selectedShapeIds: string[];
   activeShapes: Map<string, ActiveShape>;
   createShape: (x: number, y: number, createdBy: string, type?: 'rectangle' | 'circle' | 'triangle' | 'text', color?: string) => CanvasObject;
-  batchCreateShapes: (shapes: Omit<CanvasObject, 'id' | 'lastModifiedAt'>[]) => Promise<void>;
+  batchCreateShapes: (shapes: Omit<CanvasObject, 'id' | 'lastModifiedAt'>[]) => Promise<CanvasObject[]>;
   updateShape: (id: string, updates: Partial<CanvasObject>) => void;
   updateShapes: (ids: string[], updates: Partial<CanvasObject>) => void;
   deleteShape: (id: string) => void;
@@ -62,7 +62,7 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
   const [activeShapes, setActiveShapes] = useState<Map<string, ActiveShape>>(new Map());
   const [selectedShapeIds, setSelectedShapeIds] = useState<string[]>([]);
   
-  const { batchSaveObjects, subscribeToObjects } = useFirestore({ projectId });
+  const { batchSaveObjects, deleteObject, batchDeleteObjects, subscribeToObjects } = useFirestore({ projectId });
   const {
     updateActivePosition,
     updateActiveText,
@@ -91,7 +91,10 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
     
     const unsubscribe = subscribeToObjects(
       (firestoreObjects) => {
-        console.log('🔥 Firestore update received:', firestoreObjects.length, 'shapes', new Date().toISOString());
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`🔥 Firestore update received (${timestamp}):`, firestoreObjects.length, 'shapes');
+        console.log('   Shape IDs:', firestoreObjects.map(s => s.id.substring(0, 8)).join(', ') || 'none');
+        console.log('   Shape types:', firestoreObjects.map(s => s.type).join(', ') || 'none');
         
         // Update Firestore shapes state
         setFirestoreShapes(firestoreObjects);
@@ -99,9 +102,9 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
         // After initial load, allow saves
         if (isInitialLoadRef.current) {
           isInitialLoadRef.current = false;
-          console.log('✅ Initial load complete, loaded', firestoreObjects.length, 'shapes');
+          console.log(`✅ Initial load complete, loaded ${firestoreObjects.length} shapes`);
         } else {
-          console.log('🔄 Real-time sync update received!');
+          console.log('🔄 Real-time sync update - shapes changed!');
         }
       },
       (error) => {
@@ -175,6 +178,8 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
 
   // Create a new shape
   const createShape = useCallback((x: number, y: number, createdBy: string, type: 'rectangle' | 'circle' | 'triangle' | 'text' = 'rectangle', color?: string): CanvasObject => {
+    console.log('🆕 createShape called - type:', type, 'at:', x, y);
+    
     const baseShape = {
       id: crypto.randomUUID(),
       type,
@@ -238,9 +243,8 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
       return [...prev, newShape];
     });
 
-    // Manual save mode - don't auto-persist to Firestore
-    // Shapes will only be saved when user clicks "Save Project"
-    console.log('Shape created locally (manual save mode):', newShape.id);
+    // Manual save mode - user must click "Save Project" to persist
+    console.log('📝 Shape created locally (requires manual save)');
 
     return newShape;
   }, []);
@@ -263,8 +267,10 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
     // Optimistic update - add all to state immediately
     setFirestoreShapes(prev => [...prev, ...newShapes]);
 
-    // Manual save mode - don't auto-persist to Firestore
-    console.log(`✅ Created ${newShapes.length} shapes locally (manual save mode)`);
+    // Manual save mode - user must click "Save Project" to persist
+    console.log(`📝 Batch created ${newShapes.length} shapes locally (requires manual save)`);
+
+    return newShapes;
   }, []);
 
   // Batch delete multiple shapes (optimized for bulk delete)
@@ -304,6 +310,8 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
 
   // Delete a shape
   const deleteShape = useCallback((id: string) => {
+    console.log('🗑️ deleteShape called for:', id);
+    
     // Optimistic update - remove from Firestore shapes immediately
     setFirestoreShapes(prev => prev.filter(shape => shape.id !== id));
     
@@ -316,7 +324,8 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
     // Also mark as inactive in RTDB if it was active
     markShapeInactive(id);
     
-    // Manual save mode - don't auto-persist to Firestore
+    // Manual save mode - user must click "Save Project" to persist
+    console.log('📝 Shape deleted locally (requires manual save)');
   }, [markShapeInactive]);
 
   // Delete multiple shapes
@@ -333,7 +342,8 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
       markShapeInactive(id);
     });
     
-    // Manual save mode - don't auto-persist to Firestore
+    // Manual save mode - user must click "Save Project" to persist
+    console.log(`📝 Batch deleted ${ids.length} shapes locally (requires manual save)`);
   }, [markShapeInactive]);
 
   // Duplicate shapes
@@ -407,43 +417,91 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
    * Helper to add shape to state (for commands)
    */
   const addShapeToState = useCallback((shape: CanvasObject) => {
+    console.log('🆕 addShapeToState called:', shape.id, shape.type);
     locallyCreatedRef.current.add(shape.id);
     setFirestoreShapes(prev => [...prev, shape]);
-    // Manual save mode - don't auto-persist
-  }, []);
+    
+    // AUTO-SAVE creates for real-time collaboration
+    const saveToFirestore = async () => {
+      try {
+        console.log('💾 Auto-saving shape:', shape.id, shape.type);
+        await batchSaveObjects([shape]);
+        console.log('✅ Shape saved to Firestore');
+      } catch (error) {
+        console.error('❌ Failed to save shape:', error);
+      }
+    };
+    saveToFirestore();
+  }, [batchSaveObjects]);
 
   /**
    * Helper to add multiple shapes to state (for commands)
    */
   const addShapesToState = useCallback((shapes: CanvasObject[]) => {
+    console.log('🆕 addShapesToState called:', shapes.length, 'shapes');
     shapes.forEach(shape => locallyCreatedRef.current.add(shape.id));
     setFirestoreShapes(prev => [...prev, ...shapes]);
-    // Manual save mode - don't auto-persist
-  }, []);
+    
+    // AUTO-SAVE batch creates for real-time collaboration
+    const saveToFirestore = async () => {
+      try {
+        console.log('💾 Auto-saving batch:', shapes.length, 'shapes');
+        await batchSaveObjects(shapes);
+        console.log('✅ Batch saved to Firestore');
+      } catch (error) {
+        console.error('❌ Failed to batch save:', error);
+      }
+    };
+    saveToFirestore();
+  }, [batchSaveObjects]);
 
   /**
    * Helper to remove shape from state (for commands)
    */
   const removeShapeFromState = useCallback((id: string) => {
+    console.log('🗑️ removeShapeFromState called:', id);
     setFirestoreShapes(prev => prev.filter(shape => shape.id !== id));
     setSelectedShapeIds(prev => prev.filter(selectedId => selectedId !== id));
     locallyCreatedRef.current.delete(id);
     markShapeInactive(id);
-    // Manual save mode - don't auto-persist
-  }, [markShapeInactive]);
+    
+    // AUTO-SAVE deletes for real-time collaboration
+    const deleteFromFirestore = async () => {
+      try {
+        console.log('🗑️ Auto-deleting shape:', id);
+        await deleteObject(id);
+        console.log('✅ Shape deleted from Firestore');
+      } catch (error) {
+        console.error('❌ Failed to delete shape:', error);
+      }
+    };
+    deleteFromFirestore();
+  }, [markShapeInactive, deleteObject]);
 
   /**
    * Helper to remove multiple shapes from state (for commands)
    */
   const removeShapesFromState = useCallback((ids: string[]) => {
+    console.log('🗑️ removeShapesFromState called:', ids.length, 'shapes');
     setFirestoreShapes(prev => prev.filter(shape => !ids.includes(shape.id)));
     setSelectedShapeIds(prev => prev.filter(selectedId => !ids.includes(selectedId)));
     ids.forEach(id => {
       locallyCreatedRef.current.delete(id);
       markShapeInactive(id);
     });
-    // Manual save mode - don't auto-persist
-  }, [markShapeInactive]);
+    
+    // AUTO-SAVE batch deletes for real-time collaboration
+    const deleteFromFirestore = async () => {
+      try {
+        console.log('🗑️ Auto-deleting batch:', ids.length, 'shapes');
+        await batchDeleteObjects(ids);
+        console.log('✅ Batch deleted from Firestore');
+      } catch (error) {
+        console.error('❌ Failed to batch delete:', error);
+      }
+    };
+    deleteFromFirestore();
+  }, [markShapeInactive, batchDeleteObjects]);
 
   /**
    * Helper to update shapes in state (for commands)

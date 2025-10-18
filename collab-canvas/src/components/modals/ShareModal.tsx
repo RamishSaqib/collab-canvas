@@ -129,13 +129,14 @@ export default function ShareModal({
           {/* Public/Private Toggle */}
           {isOwner && (
             <div className="share-section">
-              <label className="share-label">
+              <label className="share-label toggle-label">
                 <input
                   type="checkbox"
                   checked={project.isPublic}
                   onChange={handleTogglePublic}
                   className="toggle-checkbox"
                 />
+                <span className="toggle-switch"></span>
                 <span className="toggle-text">
                   {project.isPublic ? '🌐 Public' : '🔒 Private'}
                 </span>
@@ -188,7 +189,7 @@ export default function ShareModal({
                 <div key={collaborator.userId} className="collaborator-item">
                   <div className="collaborator-info">
                     <span className="collaborator-email">
-                      {collaborator.userId === currentUserId ? 'You' : collaborator.userId}
+                      {collaborator.userId === currentUserId ? 'You' : (collaborator.email || collaborator.userId)}
                     </span>
                     <span className={`collaborator-role ${collaborator.role}`}>
                       {collaborator.role}

@@ -192,6 +192,8 @@ export function useFirestore({ projectId }: UseFirestoreProps) {
    * Queues operation if offline
    */
   const deleteObject = async (objectId: string): Promise<void> => {
+    console.log('🗑️ deleteObject called for:', objectId);
+    
     // Cancel any pending updates for this object
     const pending = pendingUpdates.get(objectId);
     if (pending) {
@@ -208,11 +210,13 @@ export function useFirestore({ projectId }: UseFirestoreProps) {
     // }
 
     try {
+      console.log('📝 Getting document reference and deleting...');
       const objectRef = getObjectDoc(objectId);
       await deleteDoc(objectRef);
       console.log('✅ Object deleted from Firestore:', objectId);
     } catch (error) {
       console.error('❌ Error deleting object from Firestore:', error);
+      console.error('Error details:', error);
       // Queue on failure
       queueOperation('delete', objectId, {});
       throw error;
@@ -228,6 +232,8 @@ export function useFirestore({ projectId }: UseFirestoreProps) {
     onError?: (error: Error) => void
   ): Unsubscribe => {
     const objectsQuery = query(getObjectsCollection());
+    
+    console.log('🔔 Setting up shapes subscription for project:', projectId);
 
     const unsubscribe = onSnapshot(
       objectsQuery,
@@ -236,11 +242,17 @@ export function useFirestore({ projectId }: UseFirestoreProps) {
         snapshot.forEach((doc) => {
           objects.push(doc.data() as CanvasObject);
         });
-        console.log('Firestore objects updated, count:', objects.length);
+        console.log('📦 Firestore shapes updated:', {
+          projectId,
+          count: objects.length,
+          shapeTypes: objects.map(o => o.type).join(', ') || 'none'
+        });
         onObjectsChange(objects);
       },
       (error) => {
-        console.error('Error in Firestore subscription:', error);
+        console.error('❌ Error in shapes subscription:', error);
+        console.error('   Project ID:', projectId);
+        console.error('   Error details:', error.message);
         if (onError) {
           onError(error);
         }
@@ -255,20 +267,26 @@ export function useFirestore({ projectId }: UseFirestoreProps) {
    * More efficient for bulk operations like test data generation
    */
   const batchSaveObjects = async (objects: CanvasObject[]) => {
+    console.log('📦 batchSaveObjects called with', objects.length, 'objects');
+    
     if (!db) {
+      console.error('❌ Firebase not initialized in batchSaveObjects');
       throw new Error('Firebase not initialized');
     }
 
+    console.log('💾 Creating batch write for', objects.length, 'objects...');
     const batch = writeBatch(db);
     const objectsCol = getObjectsCollection();
 
     objects.forEach(obj => {
+      console.log('  📝 Adding to batch:', obj.id, obj.type);
       const docRef = doc(objectsCol, obj.id);
       batch.set(docRef, obj);
     });
 
+    console.log('🚀 Committing batch...');
     await batch.commit();
-    console.log(`✅ Batch saved ${objects.length} objects`);
+    console.log(`✅ Batch saved ${objects.length} objects to Firestore`);
   };
 
   /**

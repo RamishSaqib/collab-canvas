@@ -8,6 +8,7 @@ import {
   deleteDoc,
   updateDoc,
   doc,
+  getDoc,
   getDocs,
   writeBatch,
   serverTimestamp,
@@ -19,9 +20,10 @@ import type { Project } from '../lib/types';
 
 interface UseProjectsProps {
   userId: string;
+  userEmail?: string; // For storing with collaborator data
 }
 
-export function useProjects({ userId }: UseProjectsProps) {
+export function useProjects({ userId, userEmail }: UseProjectsProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -109,13 +111,30 @@ export function useProjects({ userId }: UseProjectsProps) {
     sharedUnsubscribe = onSnapshot(
       sharedQuery,
       (snapshot) => {
+        console.log('📥 Shared projects query result:', {
+          userId,
+          count: snapshot.docs.length,
+          projectIds: snapshot.docs.map(d => d.id)
+        });
+        
         snapshot.docs.forEach(doc => {
           const project = mapDocToProject(doc);
+          console.log('  📂 Shared project:', {
+            id: project.id,
+            name: project.name,
+            createdBy: project.createdBy,
+            isCreator: project.createdBy === userId
+          });
+          
           // Only include if not the creator (to avoid duplicates with owned query)
           if (project.createdBy !== userId) {
             projectsMap.set(doc.id, project);
+            console.log('    ✅ Added to projects map');
+          } else {
+            console.log('    ⏭️  Skipped (user is creator, already in owned query)');
           }
         });
+        
         // Remove deleted shared projects
         const sharedIds = new Set(snapshot.docs.map(doc => doc.id));
         Array.from(projectsMap.keys()).forEach(id => {
@@ -129,7 +148,7 @@ export function useProjects({ userId }: UseProjectsProps) {
         if (loadedCount >= 2) updateProjects();
       },
       (err) => {
-        console.error('Error fetching shared projects:', err);
+        console.error('❌ Error fetching shared projects:', err);
         // Don't set error here, as owned projects might still work
       }
     );
@@ -150,6 +169,17 @@ export function useProjects({ userId }: UseProjectsProps) {
     }
     
     try {
+      const ownerCollaborator: any = {
+        userId,
+        role: 'owner',
+        addedAt: Date.now(),
+      };
+      
+      // Include email if available for display
+      if (userEmail) {
+        ownerCollaborator.email = userEmail;
+      }
+      
       const docRef = await addDoc(collection(db, 'projects'), {
         name: name.trim(),
         createdBy: userId,
@@ -157,13 +187,7 @@ export function useProjects({ userId }: UseProjectsProps) {
         lastModifiedAt: serverTimestamp(),
         lastAccessedAt: serverTimestamp(),
         isFavorite: false,
-        collaborators: [
-          {
-            userId,
-            role: 'owner',
-            addedAt: Date.now(),
-          }
-        ],
+        collaborators: [ownerCollaborator],
         collaboratorIds: [userId], // Flat array for efficient Firestore queries
         isPublic: false,
       });
@@ -333,12 +357,16 @@ export function useProjects({ userId }: UseProjectsProps) {
 
   /**
    * Add a collaborator to a project
-   * Note: For MVP, we use email as userId. In production, you'd lookup Firebase user by email.
+   * @param projectId - The project to add collaborator to
+   * @param userIdOrEmail - Firebase UID (preferred) or email
+   * @param role - The role to assign
+   * @param displayEmail - Optional email for display purposes
    */
   const addCollaborator = useCallback(async (
     projectId: string,
-    email: string,
-    role: 'editor' | 'viewer'
+    userIdOrEmail: string,
+    role: 'editor' | 'viewer',
+    displayEmail?: string
   ): Promise<boolean> => {
     if (!db) {
       setError('Firestore not initialized');
@@ -346,31 +374,60 @@ export function useProjects({ userId }: UseProjectsProps) {
     }
     
     try {
-      const project = projects.find(p => p.id === projectId);
+      // Try to find project in local state first
+      let project = projects.find(p => p.id === projectId);
+      
+      // If not in local state, fetch directly from Firestore
       if (!project) {
-        throw new Error('Project not found');
+        console.log('📥 Project not in local state, fetching from Firestore...');
+        const projectRef = doc(db, 'projects', projectId);
+        const projectSnap = await getDoc(projectRef);
+        
+        if (!projectSnap.exists()) {
+          throw new Error('Project not found in Firestore');
+        }
+        
+        const data = projectSnap.data();
+        project = {
+          id: projectSnap.id,
+          name: data.name,
+          createdBy: data.createdBy,
+          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toMillis() : data.createdAt,
+          lastModifiedAt: data.lastModifiedAt instanceof Timestamp ? data.lastModifiedAt.toMillis() : data.lastModifiedAt,
+          lastAccessedAt: data.lastAccessedAt instanceof Timestamp ? data.lastAccessedAt.toMillis() : data.lastAccessedAt,
+          isFavorite: data.isFavorite || false,
+          thumbnailUrl: data.thumbnailUrl,
+          collaborators: data.collaborators || [],
+          isPublic: data.isPublic || false,
+        };
       }
 
-      // Check if collaborator already exists
-      if (project.collaborators.some(c => c.userId === email)) {
-        throw new Error('User is already a collaborator');
+      // Check if collaborator already exists (by userId)
+      if (project.collaborators.some(c => c.userId === userIdOrEmail)) {
+        console.log('⚠️ User is already a collaborator');
+        return true; // Return true since they're already added
       }
 
-      const newCollaborator = {
-        userId: email, // MVP: using email as userId
+      const newCollaborator: any = {
+        userId: userIdOrEmail, // Firebase UID for permissions
         role,
         addedAt: Date.now(),
         addedBy: userId,
       };
+      
+      // Add email for display if provided
+      if (displayEmail) {
+        newCollaborator.email = displayEmail;
+      }
 
       const projectRef = doc(db, 'projects', projectId);
       await updateDoc(projectRef, {
         collaborators: [...project.collaborators, newCollaborator],
-        collaboratorIds: [...(project.collaborators.map(c => c.userId)), email], // Update flat array
+        collaboratorIds: [...(project.collaborators.map(c => c.userId)), userIdOrEmail], // Update flat array
         lastModifiedAt: Date.now(),
       });
       
-      console.log('✅ Collaborator added:', email);
+      console.log('✅ Collaborator added:', displayEmail || userIdOrEmail);
       return true;
     } catch (err) {
       console.error('❌ Error adding collaborator:', err);

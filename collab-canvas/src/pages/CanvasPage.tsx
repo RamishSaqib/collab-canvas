@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { signOut } from '../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { signOut, db } from '../lib/firebase';
 import Canvas, { type CanvasMode } from '../components/canvas/Canvas';
 import Toolbar from '../components/canvas/Toolbar';
 import Sidebar from '../components/canvas/Sidebar';
@@ -30,7 +31,7 @@ export default function CanvasPage({ user }: CanvasPageProps) {
   const stageRef = useRef<Konva.Stage | null>(null);
   
   const { generateThumbnail } = useThumbnail();
-  const { projects, updateProject, addCollaborator } = useProjects({ userId: user.id });
+  const { projects, updateProject, addCollaborator } = useProjects({ userId: user.id, userEmail: user.email });
   
   // Get current project
   const currentProject = projects.find(p => p.id === projectId);
@@ -42,21 +43,134 @@ export default function CanvasPage({ user }: CanvasPageProps) {
     }
   }, [projectId, navigate]);
 
+  // Warn user before closing tab/refreshing if there are unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = ''; // Chrome requires returnValue to be set
+        return ''; // For older browsers
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Add diagnostic utilities for debugging sync
+  useEffect(() => {
+    (window as any).__testRTDBSync = () => {
+      console.log('🧪 Testing Hybrid Save System...');
+      console.log('  Project ID:', projectId);
+      console.log('  User ID:', user.id);
+      console.log('  User Email:', user.email);
+      console.log('  ');
+      console.log('🔍 HYBRID SAVE SYSTEM:');
+      console.log('  ');
+      console.log('📝 CREATE (auto-saved):');
+      console.log('  1. User A: Create a shape');
+      console.log('  2. User B: Sees it immediately via Firestore');
+      console.log('  ');
+      console.log('🗑️ DELETE (auto-saved):');
+      console.log('  1. User A: Delete a shape');
+      console.log('  2. User B: Sees it disappear immediately');
+      console.log('  ');
+      console.log('✏️ EDIT (manual save):');
+      console.log('  1. User A: Drag/resize a shape');
+      console.log('  2. User A: Click "Save Project"');
+      console.log('  3. User B: Sees permanent update');
+    };
+    
+    (window as any).__debugSync = () => {
+      console.log('📊 Current sync status:');
+      console.log('  Project ID:', projectId);
+      console.log('  User:', user.email || user.id);
+      console.log('  ');
+      console.log('📋 Expected console messages:');
+      console.log('  - Creating: "🆕 addShapeToState called" → "💾 Auto-saving shape" → "✅ Shape saved to Firestore"');
+      console.log('  - Deleting: "🗑️ removeShapeFromState called" → "🗑️ Auto-deleting shape" → "✅ Shape deleted from Firestore"');
+      console.log('  - Received: "🔥 Firestore update received" (instant for creates/deletes)');
+      console.log('  ');
+      console.log('💾 HYBRID: Creates/deletes auto-save, edits require manual save');
+    };
+    
+    console.log('🔧 Diagnostic utilities loaded:');
+    console.log('  - window.__testRTDBSync() - Testing instructions');
+    console.log('  - window.__debugSync() - Show expected console messages');
+    
+    return () => {
+      delete (window as any).__testRTDBSync;
+      delete (window as any).__debugSync;
+    };
+  }, [projectId, user.id, user.email]);
+
   // Auto-add user as collaborator if accessing a public project they're not part of
   useEffect(() => {
-    if (!currentProject || !projectId || !user.id) return;
+    if (!projectId || !user.id || !db) return;
 
-    const isCollaborator = currentProject.collaborators.some(c => c.userId === user.id);
-    const isPublic = currentProject.isPublic;
+    let hasRun = false;
 
-    // If it's a public project and user is not yet a collaborator, add them as viewer
-    if (isPublic && !isCollaborator) {
-      console.log('🔓 Public project accessed - auto-adding user as viewer');
-      addCollaborator(projectId, user.id, 'viewer').catch(err => {
-        console.error('Failed to auto-add collaborator:', err);
-      });
-    }
-  }, [currentProject, projectId, user.id, addCollaborator]);
+    const checkAndAddCollaborator = async () => {
+      if (hasRun) return;
+      hasRun = true;
+
+      try {
+        // Always fetch project directly from Firestore to ensure we have latest data
+        console.log('📥 Checking project access...');
+        if (!db) return;
+        const projectRef = doc(db, 'projects', projectId);
+        const projectSnap = await getDoc(projectRef);
+        
+        if (!projectSnap.exists()) {
+          console.error('❌ Project not found:', projectId);
+          return;
+        }
+
+        const projectData = projectSnap.data();
+        // Check if user is collaborator by either Firebase UID or email
+        const isCollaborator = projectData.collaborators?.some((c: any) => 
+          c.userId === user.id || c.userId === user.email
+        ) || false;
+        const isPublic = projectData.isPublic || false;
+        
+        console.log('🔍 Access check:', { 
+          projectId,
+          isPublic, 
+          isCollaborator, 
+          userId: user.id,
+          userEmail: user.email,
+          collaboratorCount: projectData.collaborators?.length || 0
+        });
+
+        if (isPublic && !isCollaborator) {
+          console.log('🔓 Public project - auto-adding user as viewer...');
+          console.log('   User info:', { id: user.id, email: user.email, name: user.name });
+          // Use Firebase UID for permissions, but include email for display
+          const success = await addCollaborator(projectId, user.id, 'viewer', user.email);
+          if (success) {
+            console.log('✅ Successfully added as collaborator!');
+            console.log('   Reloading to initialize shapes subscription with proper permissions...');
+            // Small delay to ensure Firestore has propagated the update
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
+          } else {
+            console.error('❌ Failed to add as collaborator');
+          }
+        } else if (isCollaborator) {
+          console.log('✅ Already a collaborator - shapes should load');
+        } else if (!isPublic) {
+          console.log('🔒 Project is private and user is not a collaborator');
+        }
+      } catch (error) {
+        console.error('❌ Error checking/adding collaborator:', error);
+      }
+    };
+
+    // Run after a small delay to ensure Firebase is ready
+    const timeout = setTimeout(checkAndAddCollaborator, 500);
+    return () => clearTimeout(timeout);
+  }, [projectId, user.id, addCollaborator]);
 
   const handleSignOut = async () => {
     try {
@@ -69,13 +183,21 @@ export default function CanvasPage({ user }: CanvasPageProps) {
 
   const handleBackToProjects = () => {
     if (hasUnsavedChanges) {
-      if (window.confirm('You have unsaved changes. Do you want to save before leaving?')) {
+      const userWantsToSave = window.confirm(
+        '⚠️ You have unsaved changes.\n\n' +
+        'Click OK to SAVE and leave.\n' +
+        'Click Cancel to DISCARD changes and leave.'
+      );
+      
+      if (userWantsToSave) {
         // Save and then navigate
         handleSave().then(() => {
           navigate('/projects');
         });
       } else {
-        // Navigate without saving
+        // User chose to discard changes
+        console.log('🔄 Discarding unsaved edits (creates/deletes are already saved)');
+        // Navigate away - React state cleanup automatically discards unsaved edits
         navigate('/projects');
       }
     } else {

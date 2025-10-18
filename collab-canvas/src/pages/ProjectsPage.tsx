@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from '../lib/firebase';
 import { useProjects } from '../hooks/useProjects';
@@ -6,6 +6,7 @@ import type { User, Project } from '../lib/types';
 import ProjectCard from '../components/projects/ProjectCard';
 import CreateProjectModal from '../components/modals/CreateProjectModal';
 import ShareModal from '../components/modals/ShareModal';
+import { migrateProjectsToAddCollaboratorIds } from '../utils/migrateProjects';
 import './ProjectsPage.css';
 
 interface ProjectsPageProps {
@@ -24,6 +25,7 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
   const [filter, setFilter] = useState<FilterType>('all');
   const [sortBy, setSortBy] = useState<SortType>('lastAccessed');
   const [searchQuery, setSearchQuery] = useState('');
+
   const { 
     projects, 
     loading, 
@@ -35,7 +37,78 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
     addCollaborator,
     removeCollaborator,
     updateCollaboratorRole 
-  } = useProjects({ userId: user.id });
+  } = useProjects({ userId: user.id, userEmail: user.email });
+
+  // Expose utilities to console for easy access
+  useEffect(() => {
+    // Migration utility
+    (window as any).__migrateProjects = async () => {
+      try {
+        console.log('🔄 Starting migration...');
+        const result = await migrateProjectsToAddCollaboratorIds();
+        console.log('✨ Migration result:', result);
+        return result;
+      } catch (error) {
+        console.error('❌ Migration error:', error);
+        throw error;
+      }
+    };
+    
+    // Helper to make a project public and fix its data
+    (window as any).__makeProjectPublic = async (projectId: string) => {
+      if (!projectId) {
+        console.error('❌ Please provide a project ID');
+        console.log('Usage: await window.__makeProjectPublic("YOUR_PROJECT_ID")');
+        return;
+      }
+      
+      try {
+        console.log('🔄 Fetching project:', projectId);
+        const projectToUpdate = projects.find(p => p.id === projectId);
+        
+        if (!projectToUpdate) {
+          console.error('❌ Project not found in your projects list');
+          return;
+        }
+        
+        console.log('📊 Current project data:', projectToUpdate);
+        
+        // Update with all required fields
+        await updateProject(projectId, {
+          isPublic: true,
+          collaborators: projectToUpdate.collaborators?.length > 0 
+            ? projectToUpdate.collaborators 
+            : [{
+                userId: projectToUpdate.createdBy,
+                role: 'owner' as const,
+                addedAt: Date.now()
+              }]
+        });
+        
+        console.log('✅ Project is now PUBLIC! Anyone with the link can access it.');
+        console.log('🔗 Share this URL:', `${window.location.origin}/canvas/${projectId}`);
+        return true;
+      } catch (error) {
+        console.error('❌ Failed to make project public:', error);
+        throw error;
+      }
+    };
+    
+      console.log('💡 Utilities loaded!');
+      console.log('  - Run migration: await window.__migrateProjects()');
+      console.log('  - Make project public: await window.__makeProjectPublic("PROJECT_ID")');
+      console.log('📍 You are on the projects page');
+      console.log(' ');
+      console.log('🔍 HYBRID SAVE SYSTEM:');
+      console.log('  ✅ Creates & Deletes = AUTO-SAVED (instant for all users)');
+      console.log('  💾 Edits (position, size, color) = MANUAL SAVE REQUIRED');
+      console.log('  📌 Click "Save Project" to persist edits to Firestore');
+    
+    return () => {
+      delete (window as any).__migrateProjects;
+      delete (window as any).__makeProjectPublic;
+    };
+  }, [projects, updateProject]);
 
   const handleSignOut = async () => {
     try {
@@ -273,7 +346,7 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
         <ShareModal
           isOpen={showShareModal}
           onClose={handleCloseShareModal}
-          project={selectedProject}
+          project={projects.find(p => p.id === selectedProject.id) || selectedProject}
           currentUserId={user.id}
           onUpdateProject={updateProject}
           onAddCollaborator={addCollaborator}

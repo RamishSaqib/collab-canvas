@@ -183,11 +183,12 @@ export function useRealtimeSync({
 
     activeShapesRef.current.forEach((activeShape, shapeId) => {
       if (now - activeShape.timestamp > STALE_THRESHOLD_MS) {
-        console.log('Cleaning up stale shape:', shapeId);
+        console.log('🧹 Cleaning up stale RTDB entry (local cache):', shapeId, 'age:', Math.floor((now - activeShape.timestamp) / 1000) + 's');
         const shapeRef = getActiveShapeRef(shapeId);
         if (shapeRef) {
-          remove(shapeRef).catch((error) => {
-            console.error('Failed to cleanup stale shape:', error);
+          remove(shapeRef).catch(() => {
+            // Ignore errors - shape might already be removed
+            console.debug('Shape already removed from RTDB:', shapeId);
           });
         }
         activeShapesRef.current.delete(shapeId);

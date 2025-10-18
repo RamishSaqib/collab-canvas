@@ -88,7 +88,7 @@ export function useCursors({ projectId, userId, userName, userColor }: UseCursor
         });
       }
 
-      console.log('Cursors updated, count:', cursors.length);
+      // console.log('Cursors updated, count:', cursors.length);
       setOtherCursors(cursors);
     };
 

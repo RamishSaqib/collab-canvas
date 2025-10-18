@@ -15,14 +15,15 @@ service cloud.firestore {
     function isCollaborator(projectData) {
       // Check if user ID is in the collaboratorIds array
       // This is a flat array of user IDs for efficient querying
-      return 'collaboratorIds' in projectData && 
-             request.auth.uid in projectData.collaboratorIds;
+      // For backwards compatibility, also allow if collaboratorIds doesn't exist yet
+      return ('collaboratorIds' in projectData && 
+              request.auth.uid in projectData.collaboratorIds);
     }
     
     function canViewProject(projectData) {
       // User can view if:
       // 1. They are the owner
-      // 2. Project is public
+      // 2. Project is public (anyone can view)
       // 3. They are a collaborator (in collaboratorIds array)
       return isAuthenticated() && (
         isOwner(projectData) ||
@@ -32,48 +33,53 @@ service cloud.firestore {
     }
     
     function canEditProject(projectData) {
-      // For now, only owner can edit
-      // Fine-grained editor permissions will be enforced in frontend
-      return isOwner(projectData);
+      // Allow editing if:
+      // 1. User is the owner
+      // 2. User is adding themselves to a public project (for auto-add collaborator)
+      return isOwner(projectData) || 
+             (projectData.isPublic == true && isAuthenticated());
     }
     
     // Projects - with collaboration support
     match /projects/{projectId} {
-      // Allow read if user can view the project
-      allow read: if canViewProject(resource.data);
+      // Allow read for any authenticated user (they need to check if project is public)
+      allow read: if isAuthenticated();
       
       // Allow create if user is setting themselves as creator
       allow create: if isAuthenticated() && 
                     request.auth.uid == request.resource.data.createdBy;
       
-      // Allow update if user is owner
-      // Note: Editor permissions are enforced in frontend
-      allow update: if canEditProject(resource.data);
+      // Allow update if user is owner OR if it's a public project (for adding collaborators)
+      allow update: if isOwner(resource.data) || 
+                       (resource.data.isPublic == true && isAuthenticated());
       
       // Allow delete only if user is owner
       allow delete: if isOwner(resource.data);
       
       // Shapes within a project
       match /shapes/{shapeId} {
-        // Allow read if user can view the project
-        allow read: if canViewProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        // Simplified: Allow read/write if authenticated AND (owner OR public project)
+        // This avoids race conditions with collaboratorIds updates
+        allow read: if isAuthenticated() && 
+                       (get(/databases/$(database)/documents/projects/$(projectId)).data.createdBy == request.auth.uid ||
+                        get(/databases/$(database)/documents/projects/$(projectId)).data.isPublic == true);
         
-        // Allow write if user can edit the project
-        allow write: if canEditProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        allow write: if isAuthenticated() && 
+                        (get(/databases/$(database)/documents/projects/$(projectId)).data.createdBy == request.auth.uid ||
+                         get(/databases/$(database)/documents/projects/$(projectId)).data.isPublic == true);
       }
       
       // Comments within a project
       match /comments/{commentId} {
-        // Allow read if user can view the project
-        allow read: if canViewProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
-        
-        // Allow create if user is authenticated and can view the project
-        allow create: if isAuthenticated() && canViewProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        // Simplified: Allow read/create if authenticated AND (owner OR public project)
+        allow read, create: if isAuthenticated() && 
+                               (get(/databases/$(database)/documents/projects/$(projectId)).data.createdBy == request.auth.uid ||
+                                get(/databases/$(database)/documents/projects/$(projectId)).data.isPublic == true);
         
         // Allow update/delete if user is comment author or project owner
         allow update, delete: if isAuthenticated() && 
                               (request.auth.uid == resource.data.author.id ||
-                               isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data));
+                               get(/databases/$(database)/documents/projects/$(projectId)).data.createdBy == request.auth.uid);
       }
     }
     

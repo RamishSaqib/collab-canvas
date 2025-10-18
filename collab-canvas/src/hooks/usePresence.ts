@@ -90,7 +90,7 @@ export function usePresence({ projectId, userId, userName, userColor }: UsePrese
         users.sort((a, b) => a.userName.localeCompare(b.userName));
       }
 
-      console.log('Presence updated, online users:', users.length);
+      // console.log('Presence updated, online users:', users.length);
       setOnlineUsers(users);
     };
 

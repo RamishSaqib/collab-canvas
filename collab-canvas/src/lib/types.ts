@@ -146,7 +146,8 @@ export interface AIResponse {
 export type CollaboratorRole = 'owner' | 'editor' | 'viewer';
 
 export interface Collaborator {
-  userId: string;
+  userId: string;             // Firebase UID (for permissions)
+  email?: string;             // Email for display (optional for backwards compat)
   role: CollaboratorRole;
   addedAt: number;            // Timestamp when added
   addedBy?: string;           // User ID who added them
