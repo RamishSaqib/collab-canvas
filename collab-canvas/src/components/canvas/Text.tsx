@@ -100,6 +100,7 @@ function Text({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, on
         name={`shape-${shape.id}`}
         x={shape.x}
         y={shape.y}
+        width={shape.width}
         text={shape.text || 'Text'}
         fontSize={shape.fontSize || 24}
         fontFamily="Arial"

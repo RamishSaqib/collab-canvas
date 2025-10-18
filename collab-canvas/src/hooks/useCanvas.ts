@@ -507,16 +507,45 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
    * Helper to update shapes in state (for commands)
    */
   const updateShapesInState = useCallback((updates: Map<string, Partial<CanvasObject>>) => {
-    setFirestoreShapes(prev => prev.map(shape => {
-      const update = updates.get(shape.id);
-      if (update) {
-        return { ...shape, ...update, lastModifiedAt: Date.now() };
+    console.log('🔧 updateShapesInState called with', updates.size, 'updates');
+    
+    // Collect shapes to update BEFORE calling setState
+    const shapesToUpdate: CanvasObject[] = [];
+    
+    // First, get current shapes from state synchronously
+    setFirestoreShapes(prev => {
+      console.log('  Current shapes in state:', prev.length);
+      const updated = prev.map(shape => {
+        const update = updates.get(shape.id);
+        if (update) {
+          console.log(`  ✏️ Updating shape ${shape.id.substring(0,8)} (${shape.type}):`, Object.keys(update));
+          const updatedShape = { ...shape, ...update, lastModifiedAt: Date.now() };
+          shapesToUpdate.push(updatedShape);
+          return updatedShape;
+        }
+        return shape;
+      });
+      
+      // Trigger save inside setState callback where shapesToUpdate is populated
+      if (shapesToUpdate.length > 0) {
+        console.log('  Shapes to save:', shapesToUpdate.length);
+        // Use setTimeout to avoid blocking React's render cycle
+        setTimeout(async () => {
+          try {
+            console.log('💾 Auto-saving', shapesToUpdate.length, 'shape updates');
+            await batchSaveObjects(shapesToUpdate);
+            console.log('✅ Shape updates saved to Firestore');
+          } catch (error) {
+            console.error('❌ Failed to save shape updates:', error);
+          }
+        }, 0);
+      } else {
+        console.warn('⚠️ No shapes matched for update!');
       }
-      return shape;
-    }));
-
-    // Manual save mode - don't auto-persist
-  }, []);
+      
+      return updated;
+    });
+  }, [batchSaveObjects]);
 
   /**
    * Create shape with undo/redo support

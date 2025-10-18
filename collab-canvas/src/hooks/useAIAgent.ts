@@ -209,6 +209,15 @@ export function useAIAgent(
           }
         }
 
+        // Align rectangle coordinates: treat AI positions as TOP-LEFT for rectangles
+        if ((entities.shapeType || 'rectangle') === 'rectangle') {
+          if (entities.position && typeof entities.position.x === 'number' && typeof entities.position.y === 'number') {
+            const kpos = gridToKonva(entities.position.x, entities.position.y);
+            customs.x = kpos.x;
+            customs.y = kpos.y;
+          }
+        }
+
         // zIndex based on shape type (text on top)
         const baseZIndex = entities.shapeType === 'text' ? 1000 : 0;
         customs.zIndex = baseZIndex + Date.now() % 1000;
@@ -227,19 +236,33 @@ export function useAIAgent(
         const oldStates = new Map<string, Partial<CanvasObject>>();
         const newStates = new Map<string, Partial<CanvasObject>>();
 
+        console.log('🎨 Applying customizations to', customizations.size, 'shapes');
+        // Also apply customizations to the createdShapes array for Step 4
         createdShapes.forEach((shape, index) => {
           const customs = customizations.get(index);
           if (customs) {
             shapeIds.push(shape.id);
             oldStates.set(shape.id, {}); // Empty old state (defaults)
             newStates.set(shape.id, customs);
+            // Update the shape in the array too
+            Object.assign(shape, customs);
+            
+            if (shape.type === 'text' && customs.text) {
+              console.log(`  📝 Text ${index}: "${customs.text}" at (${customs.x}, ${customs.y}), zIndex: ${customs.zIndex}`);
+            }
           }
         });
 
         if (shapeIds.length > 0) {
+          console.log('💾 Saving customizations to Firestore...');
           updateShapesWithHistory(shapeIds, oldStates, newStates);
         }
       }
+
+      // Step 4: DISABLED - AI already positions navbar texts correctly
+      // The AI system prompt has detailed instructions for text positioning,
+      // and the heuristic was interfering with correct AI placements
+      console.log('✅ Batch create complete - AI positioning used (heuristic disabled)');
 
       return true;
     } catch (error) {
@@ -302,6 +325,12 @@ export function useAIAgent(
       }
       if (size?.height && size.height !== 100) {
         customizations.height = size.height;
+      }
+      // For AI positions, treat rectangle coordinates as TOP-LEFT and override centering
+      if (entities.position && typeof entities.position.x === 'number' && typeof entities.position.y === 'number') {
+        const konvaTopLeft = gridToKonva(entities.position.x, entities.position.y);
+        customizations.x = konvaTopLeft.x;
+        customizations.y = konvaTopLeft.y;
       }
     } else if (entities.shapeType === 'circle') {
       const size = entities.size as { radius: number } | undefined;
