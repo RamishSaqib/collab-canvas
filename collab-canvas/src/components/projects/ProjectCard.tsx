@@ -9,9 +9,10 @@ interface ProjectCardProps {
   onToggleFavorite: (id: string, currentValue: boolean) => void;
   onDuplicate: (id: string) => void;
   onRename: (id: string, newName: string) => void;
+  onShare: (id: string) => void;
 }
 
-export default function ProjectCard({ project, onDelete, onToggleFavorite, onDuplicate, onRename }: ProjectCardProps) {
+export default function ProjectCard({ project, onDelete, onToggleFavorite, onDuplicate, onRename, onShare }: ProjectCardProps) {
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -62,6 +63,12 @@ export default function ProjectCard({ project, onDelete, onToggleFavorite, onDup
     if (newName && newName.trim() && newName !== project.name) {
       onRename(project.id, newName.trim());
     }
+    setShowMenu(false);
+  };
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onShare(project.id);
     setShowMenu(false);
   };
 
@@ -124,6 +131,9 @@ export default function ProjectCard({ project, onDelete, onToggleFavorite, onDup
           </button>
           {showMenu && (
             <div ref={menuRef} className="project-menu" onClick={(e) => e.stopPropagation()}>
+              <button onClick={handleShare} className="menu-item">
+                🔗 Share
+              </button>
               <button onClick={handleRename} className="menu-item">
                 ✏️ Rename
               </button>

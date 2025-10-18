@@ -255,6 +255,132 @@ export function useProjects({ userId }: UseProjectsProps) {
     }
   }, [userId, projects]);
 
+  /**
+   * Add a collaborator to a project
+   * Note: For MVP, we use email as userId. In production, you'd lookup Firebase user by email.
+   */
+  const addCollaborator = useCallback(async (
+    projectId: string,
+    email: string,
+    role: 'editor' | 'viewer'
+  ): Promise<boolean> => {
+    if (!db) {
+      setError('Firestore not initialized');
+      return false;
+    }
+    
+    try {
+      const project = projects.find(p => p.id === projectId);
+      if (!project) {
+        throw new Error('Project not found');
+      }
+
+      // Check if collaborator already exists
+      if (project.collaborators.some(c => c.userId === email)) {
+        throw new Error('User is already a collaborator');
+      }
+
+      const newCollaborator = {
+        userId: email, // MVP: using email as userId
+        role,
+        addedAt: Date.now(),
+        addedBy: userId,
+      };
+
+      const projectRef = doc(db, 'projects', projectId);
+      await updateDoc(projectRef, {
+        collaborators: [...project.collaborators, newCollaborator],
+        lastModifiedAt: Date.now(),
+      });
+      
+      console.log('✅ Collaborator added:', email);
+      return true;
+    } catch (err) {
+      console.error('❌ Error adding collaborator:', err);
+      setError(err instanceof Error ? err.message : 'Failed to add collaborator');
+      throw err;
+    }
+  }, [userId, projects]);
+
+  /**
+   * Remove a collaborator from a project
+   */
+  const removeCollaborator = useCallback(async (
+    projectId: string,
+    collaboratorUserId: string
+  ): Promise<boolean> => {
+    if (!db) {
+      setError('Firestore not initialized');
+      return false;
+    }
+    
+    try {
+      const project = projects.find(p => p.id === projectId);
+      if (!project) {
+        throw new Error('Project not found');
+      }
+
+      const updatedCollaborators = project.collaborators.filter(
+        c => c.userId !== collaboratorUserId
+      );
+
+      if (updatedCollaborators.length === project.collaborators.length) {
+        throw new Error('Collaborator not found');
+      }
+
+      const projectRef = doc(db, 'projects', projectId);
+      await updateDoc(projectRef, {
+        collaborators: updatedCollaborators,
+        lastModifiedAt: Date.now(),
+      });
+      
+      console.log('✅ Collaborator removed:', collaboratorUserId);
+      return true;
+    } catch (err) {
+      console.error('❌ Error removing collaborator:', err);
+      setError(err instanceof Error ? err.message : 'Failed to remove collaborator');
+      return false;
+    }
+  }, [projects]);
+
+  /**
+   * Update a collaborator's role
+   */
+  const updateCollaboratorRole = useCallback(async (
+    projectId: string,
+    collaboratorUserId: string,
+    newRole: 'editor' | 'viewer'
+  ): Promise<boolean> => {
+    if (!db) {
+      setError('Firestore not initialized');
+      return false;
+    }
+    
+    try {
+      const project = projects.find(p => p.id === projectId);
+      if (!project) {
+        throw new Error('Project not found');
+      }
+
+      const updatedCollaborators = project.collaborators.map(c =>
+        c.userId === collaboratorUserId ? { ...c, role: newRole } : c
+      );
+
+      const projectRef = doc(db, 'projects', projectId);
+      await updateDoc(projectRef, {
+        collaborators: updatedCollaborators,
+        lastModifiedAt: Date.now(),
+      });
+      
+      console.log('✅ Collaborator role updated:', collaboratorUserId, newRole);
+      return true;
+    } catch (err) {
+      console.error('❌ Error updating collaborator role:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update role');
+      return false;
+    }
+  }, [projects]);
+
   return {
     projects,
     loading,
@@ -264,6 +390,9 @@ export function useProjects({ userId }: UseProjectsProps) {
     updateProject,
     toggleFavorite,
     duplicateProject,
+    addCollaborator,
+    removeCollaborator,
+    updateCollaboratorRole,
   };
 }
 

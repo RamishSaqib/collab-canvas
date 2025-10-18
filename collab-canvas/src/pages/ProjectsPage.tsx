@@ -2,9 +2,10 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signOut } from '../lib/firebase';
 import { useProjects } from '../hooks/useProjects';
-import type { User } from '../lib/types';
+import type { User, Project } from '../lib/types';
 import ProjectCard from '../components/projects/ProjectCard';
 import CreateProjectModal from '../components/modals/CreateProjectModal';
+import ShareModal from '../components/modals/ShareModal';
 import './ProjectsPage.css';
 
 interface ProjectsPageProps {
@@ -18,10 +19,23 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [filter, setFilter] = useState<FilterType>('all');
   const [sortBy, setSortBy] = useState<SortType>('lastAccessed');
   const [searchQuery, setSearchQuery] = useState('');
-  const { projects, loading, createProject, deleteProject, updateProject, toggleFavorite, duplicateProject } = useProjects({ userId: user.id });
+  const { 
+    projects, 
+    loading, 
+    createProject, 
+    deleteProject, 
+    updateProject, 
+    toggleFavorite, 
+    duplicateProject,
+    addCollaborator,
+    removeCollaborator,
+    updateCollaboratorRole 
+  } = useProjects({ userId: user.id });
 
   const handleSignOut = async () => {
     try {
@@ -61,6 +75,19 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
 
   const handleRenameProject = async (projectId: string, newName: string) => {
     await updateProject(projectId, { name: newName });
+  };
+
+  const handleShareProject = (projectId: string) => {
+    const project = projects.find(p => p.id === projectId);
+    if (project) {
+      setSelectedProject(project);
+      setShowShareModal(true);
+    }
+  };
+
+  const handleCloseShareModal = () => {
+    setShowShareModal(false);
+    setSelectedProject(null);
   };
 
   // Filter, sort, and search projects
@@ -227,6 +254,7 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
               onToggleFavorite={handleToggleFavorite}
               onDuplicate={handleDuplicateProject}
               onRename={handleRenameProject}
+              onShare={handleShareProject}
             />
           ))
         )}
@@ -238,6 +266,20 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
         onClose={() => setShowCreateModal(false)}
         onCreate={handleCreate}
       />
+
+      {/* Share Project Modal */}
+      {selectedProject && (
+        <ShareModal
+          isOpen={showShareModal}
+          onClose={handleCloseShareModal}
+          project={selectedProject}
+          currentUserId={user.id}
+          onUpdateProject={updateProject}
+          onAddCollaborator={addCollaborator}
+          onRemoveCollaborator={removeCollaborator}
+          onUpdateCollaboratorRole={updateCollaboratorRole}
+        />
+      )}
     </div>
   );
 }
