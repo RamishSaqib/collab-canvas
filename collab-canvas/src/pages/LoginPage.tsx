@@ -25,35 +25,9 @@ export default function LoginPage() {
   }, [navigate]);
 
   return (
-    <div className="auth-page">
-      <div className="auth-container">
-        <div className="auth-header">
-          <h1>CollabCanvas</h1>
-          <p>Real-time collaborative canvas with AI</p>
-        </div>
-
-        <div className="auth-forms">
-          <div className="auth-tabs">
-            <button
-              className={`auth-tab ${isLogin ? 'active' : ''}`}
-              onClick={() => setIsLogin(true)}
-            >
-              Log In
-            </button>
-            <button
-              className={`auth-tab ${!isLogin ? 'active' : ''}`}
-              onClick={() => setIsLogin(false)}
-            >
-              Sign Up
-            </button>
-          </div>
-
-          {isLogin ? <LoginForm onToggleForm={() => setIsLogin(false)} /> : <SignupForm onToggleForm={() => setIsLogin(true)} />}
-        </div>
-
-        <div className="auth-footer">
-          <p>© 2025 CollabCanvas. All rights reserved.</p>
-        </div>
+    <div className="login-page">
+      <div className="login-card">
+        {isLogin ? <LoginForm onToggleForm={() => setIsLogin(false)} /> : <SignupForm onToggleForm={() => setIsLogin(true)} />}
       </div>
     </div>
   );
