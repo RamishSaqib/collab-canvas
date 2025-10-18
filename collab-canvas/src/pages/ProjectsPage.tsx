@@ -122,7 +122,7 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
   }, [projects, filter, sortBy, searchQuery]);
 
   return (
-    <div className="projects-page">
+    <div className="projects-page page-transition">
       {/* Header */}
       <header className="projects-header">
         <div className="header-left">
@@ -246,16 +246,17 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
             </p>
           </div>
         ) : (
-          filteredProjects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              onDelete={handleDeleteProject}
-              onToggleFavorite={handleToggleFavorite}
-              onDuplicate={handleDuplicateProject}
-              onRename={handleRenameProject}
-              onShare={handleShareProject}
-            />
+          filteredProjects.map((project, index) => (
+            <div key={project.id} className={`stagger-item ${index < 10 ? '' : 'animate-fade-in'}`}>
+              <ProjectCard
+                project={project}
+                onDelete={handleDeleteProject}
+                onToggleFavorite={handleToggleFavorite}
+                onDuplicate={handleDuplicateProject}
+                onRename={handleRenameProject}
+                onShare={handleShareProject}
+              />
+            </div>
           ))
         )}
       </div>
