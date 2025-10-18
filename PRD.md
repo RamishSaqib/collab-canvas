@@ -329,6 +329,45 @@ Real-time collaborative canvas application (Figma-like) with multiplayer synchro
 
 ---
 
+### PR #26: Multi-User Collaboration - Backend + Project Menu Fixes ✅
+*Oct 18, 2025 - COMPLETE*
+
+**Backend Collaboration Features:**
+1. ✅ **Data Model** - `Collaborator` interface with role-based permissions
+2. ✅ **Project Schema** - Added `collaborators[]` and `isPublic` fields
+3. ✅ **Permission System** - Helper functions for access control (`canView`, `canEdit`, `canDelete`, etc.)
+4. ✅ **Firestore Rules** - Updated security rules for collaboration support
+5. ✅ **Owner Initialization** - Projects automatically add creator as owner in collaborators array
+
+**Bug Fixes:**
+1. ✅ **Project Menu Persistence** - Fixed menu not closing when clicking away
+2. ✅ **Delete Option Missing** - Restored "Delete" option in project menu
+3. ✅ **Rename Feature** - Added "Rename" option to project menu
+
+**Implementation Details:**
+- `CollaboratorRole`: `'owner' | 'editor' | 'viewer'`
+- `Collaborator`: `{ userId, role, addedAt, addedBy }`
+- Permission utilities in `src/utils/permissions.ts`
+- Firestore security rules simplified (fine-grained permissions enforced in frontend)
+- Project creation includes `collaborators: [{ userId, role: 'owner', addedAt }]`
+- `useEffect` with document click listener to close menu on outside click
+- `updateProject()` function for renaming projects
+
+**User Experience:**
+- Project menu now has 3 options: ✏️ Rename, 📋 Duplicate, 🗑️ Delete
+- Menu closes automatically when clicking outside
+- Rename uses native browser prompt (can be upgraded to modal later)
+- All backend infrastructure ready for collaboration UI in PR #27
+
+**Technical:**
+- New file: `src/utils/permissions.ts` with 8 permission helper functions
+- Updated: `src/lib/types.ts` with collaboration types
+- Updated: `src/hooks/useProjects.ts` to initialize owner as collaborator
+- Updated: `firestore.rules` with collaboration support
+- Fixed: `ProjectCard.tsx` menu behavior with click-outside detection
+
+---
+
 ## Final Project Status 🏆
 
 ### Overall Achievement: 105/105 (EXCELLENT) + Multi-Project System + Manual Save

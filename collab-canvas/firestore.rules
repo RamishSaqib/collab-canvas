@@ -2,34 +2,70 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Projects - users can read/write their own projects
+    // Helper functions for collaboration
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(projectData) {
+      return isAuthenticated() && 
+             projectData.createdBy == request.auth.uid;
+    }
+    
+    function canViewProject(projectData) {
+      // User can view if:
+      // 1. They are the owner
+      // 2. Project is public
+      // Note: More granular collaborator checking is handled in frontend
+      return isAuthenticated() && (
+        isOwner(projectData) ||
+        projectData.isPublic == true
+      );
+    }
+    
+    function canEditProject(projectData) {
+      // For now, only owner can edit
+      // Fine-grained editor permissions will be enforced in frontend
+      return isOwner(projectData);
+    }
+    
+    // Projects - with collaboration support
     match /projects/{projectId} {
-      // Allow read if user is the creator
-      allow read: if request.auth != null && 
-                  request.auth.uid == resource.data.createdBy;
+      // Allow read if user can view the project
+      allow read: if canViewProject(resource.data);
       
       // Allow create if user is setting themselves as creator
-      allow create: if request.auth != null && 
+      allow create: if isAuthenticated() && 
                     request.auth.uid == request.resource.data.createdBy;
       
-      // Allow update/delete if user is the creator
-      allow update, delete: if request.auth != null && 
-                            request.auth.uid == resource.data.createdBy;
+      // Allow update if user is owner
+      // Note: Editor permissions are enforced in frontend
+      allow update: if canEditProject(resource.data);
       
-      // Shapes within a project - anyone who can read the project can edit shapes
+      // Allow delete only if user is owner
+      allow delete: if isOwner(resource.data);
+      
+      // Shapes within a project
       match /shapes/{shapeId} {
-        allow read, write: if request.auth != null && 
-                           request.auth.uid == get(/databases/$(database)/documents/projects/$(projectId)).data.createdBy;
+        // Allow read if user can view the project
+        allow read: if canViewProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        
+        // Allow write if user can edit the project
+        allow write: if canEditProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
       }
       
       // Comments within a project
       match /comments/{commentId} {
-        allow read: if request.auth != null && 
-                    request.auth.uid == get(/databases/$(database)/documents/projects/$(projectId)).data.createdBy;
-        allow create: if request.auth != null;
-        allow update, delete: if request.auth != null && 
+        // Allow read if user can view the project
+        allow read: if canViewProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        
+        // Allow create if user is authenticated and can view the project
+        allow create: if isAuthenticated() && canViewProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+        
+        // Allow update/delete if user is comment author or project owner
+        allow update, delete: if isAuthenticated() && 
                               (request.auth.uid == resource.data.author.id ||
-                               request.auth.uid == get(/databases/$(database)/documents/projects/$(projectId)).data.createdBy);
+                               isOwner(get(/databases/$(database)/documents/projects/$(projectId)).data));
       }
     }
     

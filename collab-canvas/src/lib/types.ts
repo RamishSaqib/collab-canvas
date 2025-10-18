@@ -143,16 +143,27 @@ export interface AIResponse {
 }
 
 // Project Management Types
+export type CollaboratorRole = 'owner' | 'editor' | 'viewer';
+
+export interface Collaborator {
+  userId: string;
+  role: CollaboratorRole;
+  addedAt: number;            // Timestamp when added
+  addedBy?: string;           // User ID who added them
+}
+
 export interface Project {
   id: string;
   name: string;
-  createdBy: string;          // User ID
+  createdBy: string;          // User ID (owner)
   createdAt: number;          // Timestamp
   lastModifiedAt: number;     // Timestamp
   lastAccessedAt: number;     // For "Recent" sorting
   isFavorite: boolean;        // User's favorite flag
   thumbnailUrl?: string;      // Firebase Storage URL
   hasUnsavedChanges?: boolean; // Client-side only
+  collaborators: Collaborator[]; // Array of collaborators with roles
+  isPublic: boolean;          // Anyone with link can view
 }
 
 export type ProjectSortOption = 'lastAccessed' | 'created' | 'alphabetical';

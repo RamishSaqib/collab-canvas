@@ -21,7 +21,7 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
   const [filter, setFilter] = useState<FilterType>('all');
   const [sortBy, setSortBy] = useState<SortType>('lastAccessed');
   const [searchQuery, setSearchQuery] = useState('');
-  const { projects, loading, createProject, deleteProject, toggleFavorite, duplicateProject } = useProjects({ userId: user.id });
+  const { projects, loading, createProject, deleteProject, updateProject, toggleFavorite, duplicateProject } = useProjects({ userId: user.id });
 
   const handleSignOut = async () => {
     try {
@@ -57,6 +57,10 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
     if (newProjectId) {
       console.log('✅ Project duplicated successfully');
     }
+  };
+
+  const handleRenameProject = async (projectId: string, newName: string) => {
+    await updateProject(projectId, { name: newName });
   };
 
   // Filter, sort, and search projects
@@ -222,6 +226,7 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
               onDelete={handleDeleteProject}
               onToggleFavorite={handleToggleFavorite}
               onDuplicate={handleDuplicateProject}
+              onRename={handleRenameProject}
             />
           ))
         )}

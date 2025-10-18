@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Project } from '../../lib/types';
 import './ProjectCard.css';
@@ -8,17 +8,37 @@ interface ProjectCardProps {
   onDelete: (id: string) => void;
   onToggleFavorite: (id: string, currentValue: boolean) => void;
   onDuplicate: (id: string) => void;
+  onRename: (id: string, newName: string) => void;
 }
 
-export default function ProjectCard({ project, onDelete, onToggleFavorite, onDuplicate }: ProjectCardProps) {
+export default function ProjectCard({ project, onDelete, onToggleFavorite, onDuplicate, onRename }: ProjectCardProps) {
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMenu]);
 
   const handleOpen = () => {
     navigate(`/canvas/${project.id}`);
   };
 
-  const handleDelete = () => {
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (window.confirm(`Delete "${project.name}"? This action cannot be undone.`)) {
       onDelete(project.id);
     }
@@ -33,6 +53,15 @@ export default function ProjectCard({ project, onDelete, onToggleFavorite, onDup
   const handleDuplicate = (e: React.MouseEvent) => {
     e.stopPropagation();
     onDuplicate(project.id);
+    setShowMenu(false);
+  };
+
+  const handleRename = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newName = prompt('Enter new project name:', project.name);
+    if (newName && newName.trim() && newName !== project.name) {
+      onRename(project.id, newName.trim());
+    }
     setShowMenu(false);
   };
 
@@ -94,7 +123,10 @@ export default function ProjectCard({ project, onDelete, onToggleFavorite, onDup
             ⋮
           </button>
           {showMenu && (
-            <div className="project-menu" onClick={(e) => e.stopPropagation()}>
+            <div ref={menuRef} className="project-menu" onClick={(e) => e.stopPropagation()}>
+              <button onClick={handleRename} className="menu-item">
+                ✏️ Rename
+              </button>
               <button onClick={handleDuplicate} className="menu-item">
                 📋 Duplicate
               </button>

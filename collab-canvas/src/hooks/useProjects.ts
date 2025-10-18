@@ -54,6 +54,8 @@ export function useProjects({ userId }: UseProjectsProps) {
             lastAccessedAt: data.lastAccessedAt instanceof Timestamp ? data.lastAccessedAt.toMillis() : data.lastAccessedAt,
             isFavorite: data.isFavorite || false,
             thumbnailUrl: data.thumbnailUrl,
+            collaborators: data.collaborators || [],
+            isPublic: data.isPublic || false,
           };
         });
         // Sort client-side by createdAt (newest first)
@@ -89,6 +91,14 @@ export function useProjects({ userId }: UseProjectsProps) {
         lastModifiedAt: serverTimestamp(),
         lastAccessedAt: serverTimestamp(),
         isFavorite: false,
+        collaborators: [
+          {
+            userId,
+            role: 'owner',
+            addedAt: Date.now(),
+          }
+        ],
+        isPublic: false,
       });
       
       console.log('✅ Project created:', docRef.id);
