@@ -251,6 +251,14 @@
     min-height: 200px;
   }
   
+  .project-name {
+    font-size: 16px;
+  }
+  
+  .project-date {
+    font-size: 12px;
+  }
+  
   .projects-container.list .project-card {
     flex-direction: column;
     height: auto;
@@ -270,6 +278,53 @@
   .projects-container.list .project-date {
     text-align: left;
     margin-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .project-card {
+    min-height: 180px;
+  }
+  
+  .project-info {
+    padding: 12px;
+  }
+  
+  .project-name {
+    font-size: 15px;
+  }
+  
+  .project-date {
+    font-size: 11px;
+  }
+  
+  .project-menu-button {
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+  }
+  
+  .project-menu {
+    min-width: 140px;
+    right: 8px;
+    top: 36px;
+  }
+  
+  .menu-option {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+  
+  .favorite-button {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+    top: 8px;
+    right: 8px;
+  }
+  
+  .projects-container.list .project-info {
+    padding: 12px;
   }
 }
 
