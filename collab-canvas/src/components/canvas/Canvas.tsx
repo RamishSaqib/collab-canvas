@@ -106,7 +106,9 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
     batchCreateShapesWithHistory,
     deleteShapesWithHistory,
     updateShapesWithHistory,
-  } = useCanvas({ user, projectId });
+    // Manual save
+    saveAllShapesToFirestore,
+  } = useCanvas({ user, projectId, onShapesChange });
 
   // Track if we should suppress change notifications (e.g., during AI operations)
   const suppressChangeNotificationRef = useRef(false);
@@ -174,18 +176,45 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
     }
   }, [processAICommand, onShapesChange]);
 
-  // Expose AI command handler via window for App to access
+  // Handlers for Clear All and Generate Test Shapes
+  const handleClearAll = useCallback(() => {
+    const allShapeIds = shapes.map(s => s.id);
+    if (allShapeIds.length > 0) {
+      wrappedDeleteShapes(allShapeIds);
+      // Explicitly trigger change notification for Clear All
+      onShapesChange?.();
+    }
+  }, [shapes, wrappedDeleteShapes, onShapesChange]);
+
+  const handleGenerateTestShapes = useCallback((count: number) => {
+    const shapesToCreate = Array.from({ length: count }, (_, i) => ({
+      x: Math.random() * 800 - 400,
+      y: Math.random() * 600 - 300,
+      createdBy: user.id,
+      type: (['rectangle', 'circle', 'triangle'] as const)[i % 3],
+      color: selectedColor,
+    }));
+    batchCreateShapesWithHistory(shapesToCreate);
+  }, [user.id, selectedColor, batchCreateShapesWithHistory]);
+
+  // Expose AI command handler, save function, and shape operations via window
   useEffect(() => {
     (window as any).__processAICommand = wrappedAICommand;
     (window as any).__isAIProcessing = isAIProcessing;
     (window as any).__aiError = aiError;
+    (window as any).__saveAllShapesToFirestore = saveAllShapesToFirestore;
+    (window as any).__clearAllShapes = handleClearAll;
+    (window as any).__generateTestShapes = handleGenerateTestShapes;
     
     return () => {
       delete (window as any).__processAICommand;
       delete (window as any).__isAIProcessing;
       delete (window as any).__aiError;
+      delete (window as any).__saveAllShapesToFirestore;
+      delete (window as any).__clearAllShapes;
+      delete (window as any).__generateTestShapes;
     };
-  }, [wrappedAICommand, isAIProcessing, aiError]);
+  }, [wrappedAICommand, isAIProcessing, aiError, saveAllShapesToFirestore, handleClearAll, handleGenerateTestShapes]);
 
   const { otherCursors, broadcastCursor } = useCursors({
     projectId,
@@ -998,27 +1027,15 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
     console.log(`✅ Generated ${count} shapes for performance testing`);
   }, [batchCreateShapes, user.id]);
 
-  // Clear all shapes and comments
+  // Clear all shapes and comments (uses the new manual-save handler)
   const clearAllShapes = useCallback(async () => {
     if (window.confirm(`Delete all ${shapes.length} shapes and ${comments.length} comments?`)) {
-      const allIds = shapes.map(s => s.id);
-      // Suppress change notifications - Clear All persists immediately and will auto-save thumbnail
-      suppressChangeNotificationRef.current = true;
-      try {
-        // Delete all shapes (already persists to Firestore via real-time sync)
-        await deleteShapesWithHistory(allIds);
-        // Delete all comments
-        await Promise.all(comments.map(c => deleteComment(c.id)));
-        console.log('🧹 Clear All: Complete - will auto-save thumbnail');
-      } finally {
-        suppressChangeNotificationRef.current = false;
-        // Trigger auto-save of empty canvas thumbnail via special callback
-        if ((window as any).__autoSaveAfterClear) {
-          (window as any).__autoSaveAfterClear();
-        }
-      }
+      // Use the new handleClearAll which triggers change notifications
+      handleClearAll();
+      // Delete all comments
+      await Promise.all(comments.map(c => deleteComment(c.id)));
     }
-  }, [shapes, comments, deleteShapesWithHistory, deleteComment]);
+  }, [shapes, comments, handleClearAll, deleteComment]);
 
   // Call the prop callbacks when functions are invoked
   useEffect(() => {

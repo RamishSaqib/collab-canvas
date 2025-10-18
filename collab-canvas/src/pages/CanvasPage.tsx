@@ -74,7 +74,13 @@ export default function CanvasPage({ user }: CanvasPageProps) {
 
     setIsSaving(true);
     try {
-      // Generate thumbnail
+      // First, persist all shapes to Firestore
+      if ((window as any).__saveAllShapesToFirestore) {
+        await (window as any).__saveAllShapesToFirestore();
+        console.log('✅ Shapes persisted to Firestore');
+      }
+
+      // Then generate thumbnail
       const thumbnailUrl = await generateThumbnail(stageRef.current);
       
       // Update project with thumbnail and lastAccessedAt
@@ -109,22 +115,6 @@ export default function CanvasPage({ user }: CanvasPageProps) {
       (window as any).__clearAllShapes();
     }
   };
-
-  // Auto-save thumbnail after Clear All (since shapes are already persisted via real-time sync)
-  useEffect(() => {
-    (window as any).__autoSaveAfterClear = () => {
-      // Wait a bit for shapes to be deleted, then save empty thumbnail
-      setTimeout(() => {
-        if (stageRef.current && projectId) {
-          handleSave();
-        }
-      }, 500);
-    };
-
-    return () => {
-      delete (window as any).__autoSaveAfterClear;
-    };
-  }, [handleSave, projectId]);
 
   const handleAICommand = useCallback(async (command: string): Promise<{ success: boolean; message: string }> => {
     if (!(window as any).__processAICommand) {
