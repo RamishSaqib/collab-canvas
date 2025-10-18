@@ -821,7 +821,111 @@
 
 ---
 
-## 🎉 PROJECT CONTINUES - 29 PRs ACTIVE
+## PR #30: Keyboard Shortcuts Enhancement + Project Name Display ✅
+*Oct 18, 2025 - COMPLETE*
+
+### Tasks:
+1. ✅ Display project name in canvas toolbar (truncated)
+2. ✅ Add shape manipulation shortcuts (arrow keys, shift+arrow)
+3. ❌ Add canvas shortcuts (Alt+Drag duplicate, Cmd+D duplicate) - Deferred
+4. ✅ Create enhanced keyboard shortcuts modal with categories
+5. ✅ Test all shortcuts
+6. ✅ Deploy PR #30
+
+### Features:
+- **Project Name Display**: Shows current project name in toolbar (replaces "CollabCanvas")
+- **Arrow Key Nudging**: Move shapes 1px with ↑↓←→ keys
+- **Shift+Arrow Nudging**: Move shapes 10px for faster adjustments
+- **Updated Shortcuts Modal**: Added new shortcuts, organized by category
+
+### Project Name Display:
+- Fetches project name from `useProjects` hook
+- Displays in toolbar with truncation (ellipsis)
+- Responsive max-width:
+  - Desktop: 300px, 1.25rem font
+  - Tablet (768px): 200px, 1rem font
+  - Mobile (640px): 150px, 0.9rem font
+- Hover tooltip shows full name
+- Falls back to "Untitled Project"
+- CSS: `overflow: hidden`, `text-overflow: ellipsis`, `white-space: nowrap`
+
+### Keyboard Shortcuts:
+- **Arrow Keys**: Nudge 1px (up, down, left, right)
+- **Shift+Arrows**: Nudge 10px (for faster positioning)
+- Works with single or multiple selections
+- Updates all selected shapes simultaneously
+- Implementation:
+  - Event listener checks for arrow keys
+  - Calculates delta based on key and Shift modifier
+  - Updates shape positions via `updateShapes`
+  - Non-destructive (doesn't interfere with other shortcuts)
+
+### Shortcuts Modal Updates:
+- Added 2 new shortcuts:
+  - "Nudge shape 1px" (↑ ↓ ← →)
+  - "Nudge shape 10px" (Shift + ↑ ↓ ← →)
+- Removed outdated "Navigate between selected shapes"
+- Organized in 9 categories:
+  1. Tools (8 shortcuts)
+  2. Selection (4 shortcuts)
+  3. Shape Actions (9 shortcuts) - **Updated**
+  4. Text Formatting (3 shortcuts)
+  5. History (2 shortcuts)
+  6. Comments (3 shortcuts)
+  7. Color (1 shortcut)
+  8. Navigation (3 shortcuts)
+  9. Help (1 shortcut)
+
+### Use Cases:
+- **Precision Alignment**: 1px nudging for pixel-perfect positioning
+- **Quick Adjustments**: 10px jumps for large movements
+- **Keyboard-Only Workflow**: Position shapes without mouse
+- **Bulk Positioning**: Move multiple selected shapes together
+- **Accessibility**: Full keyboard control
+
+### Technical Implementation:
+```typescript
+// Arrow key nudging logic
+if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+  if (selectedShapeIds.length > 0) {
+    e.preventDefault();
+    const nudgeDistance = e.shiftKey ? 10 : 1;
+    let dx = 0, dy = 0;
+    if (e.key === 'ArrowLeft') dx = -nudgeDistance;
+    if (e.key === 'ArrowRight') dx = nudgeDistance;
+    if (e.key === 'ArrowUp') dy = -nudgeDistance;
+    if (e.key === 'ArrowDown') dy = nudgeDistance;
+    
+    selectedShapeIds.forEach(id => {
+      const shape = shapes.find(s => s.id === id);
+      if (shape) {
+        updateShapes([id], { x: shape.x + dx, y: shape.y + dy });
+      }
+    });
+  }
+}
+```
+
+### Files Changed:
+- `src/pages/CanvasPage.tsx` (+4 lines) - Fetch project, pass name to Toolbar
+- `src/components/canvas/Toolbar.tsx` (+4 lines) - Accept projectName prop, display in title
+- `src/components/canvas/Toolbar.css` (+6 lines) - Truncation and responsive max-width
+- `src/components/canvas/Canvas.tsx` (+16 lines) - Arrow key nudging implementation
+- `src/components/canvas/KeyboardShortcutsModal.tsx` (+2 shortcuts, -1 shortcut)
+
+### Total Changes: ~30 lines added/modified
+
+### User Benefits:
+✅ Context awareness: Always know which project you're editing
+✅ Power user efficiency: Keyboard-only shape manipulation
+✅ Precision control: 1px nudging for pixel-perfect designs
+✅ Speed: 10px jumps for faster repositioning
+✅ Accessibility: Full keyboard navigation support
+✅ Discoverability: Updated shortcuts modal with all features
+
+---
+
+## 🎉 PROJECT CONTINUES - 30 PRs ACTIVE
 
 **Final Achievement: 105/105 (EXCELLENT across all 6 sections) + Multi-Project System + Manual Save**
 
@@ -855,6 +959,10 @@
 ✅ Responsive typography and spacing
 ✅ Mobile-friendly modals (fullscreen on small screens)
 ✅ Collapsible sidebar on mobile
+✅ Project name display in toolbar (truncated)
+✅ Arrow key nudging (1px precision)
+✅ Shift+Arrow nudging (10px jumps)
+✅ Enhanced keyboard shortcuts modal
 ✅ Comprehensive documentation
 ✅ Deployed to production
 

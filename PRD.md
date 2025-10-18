@@ -552,6 +552,79 @@ Real-time collaborative canvas application (Figma-like) with multiplayer synchro
 
 ---
 
+### PR #30: Keyboard Shortcuts Enhancement + Project Name Display ✅
+*Oct 18, 2025 - COMPLETE*
+
+**Features:**
+1. ✅ **Project Name Display** - Shows current project name in canvas toolbar
+2. ✅ **Arrow Key Nudging** - Nudge shapes 1px with arrow keys
+3. ✅ **Shift+Arrow Nudging** - Nudge shapes 10px for larger adjustments
+4. ✅ **Updated Shortcuts Modal** - Enhanced with new shortcuts
+
+**Project Name Display:**
+- Replaced hardcoded "CollabCanvas" with dynamic project name
+- Truncation with ellipsis for long names
+- Responsive max-width:
+  - Desktop: 300px (1.25rem font)
+  - Tablet (768px): 200px (1rem font)
+  - Mobile (640px): 150px (0.9rem font)
+- Hover shows full name via title attribute
+- Falls back to "Untitled Project" for new/unloaded projects
+
+**Keyboard Shortcuts:**
+- **Arrow Keys (↑↓←→)**: Nudge selected shapes 1px in any direction
+- **Shift + Arrows**: Nudge selected shapes 10px for faster positioning
+- Works with single or multiple selected shapes
+- Updates all selected shapes simultaneously
+- Smooth, non-disruptive UX
+
+**Use Cases:**
+- **Precision Alignment**: Fine-tune shape positions by 1px
+- **Quick Adjustments**: Move shapes 10px at a time with Shift
+- **Keyboard-Only Workflow**: Position shapes without mouse
+- **Bulk Positioning**: Move multiple shapes together
+
+**Shortcuts Modal Updates:**
+- Added "Nudge shape 1px" (arrow keys)
+- Added "Nudge shape 10px" (Shift + arrows)
+- Removed outdated "Navigate between selected shapes"
+- Maintained categories:
+  - Tools (8 shortcuts)
+  - Selection (4 shortcuts)
+  - Shape Actions (9 shortcuts)
+  - Text Formatting (3 shortcuts)
+  - History (2 shortcuts)
+  - Comments (3 shortcuts)
+  - Color (1 shortcut)
+  - Navigation (3 shortcuts)
+  - Help (1 shortcut)
+
+**Implementation:**
+- Project name fetched from `useProjects` hook
+- Passed via props to Toolbar component
+- Arrow key handling in keyboard event listener
+- Distance calculation based on Shift modifier
+- Batch update of all selected shapes
+- CSS truncation with overflow:hidden and text-overflow:ellipsis
+
+**Files Changed:**
+- `src/pages/CanvasPage.tsx` - Fetch project, pass name to Toolbar
+- `src/components/canvas/Toolbar.tsx` - Accept and display project name
+- `src/components/canvas/Toolbar.css` - Truncation and responsive styles (+6 lines)
+- `src/components/canvas/Canvas.tsx` - Arrow key nudging logic (+16 lines)
+- `src/components/canvas/KeyboardShortcutsModal.tsx` - Updated shortcuts list
+
+**User Benefits:**
+- Better context awareness: Always know which project you're editing
+- Power user efficiency: Keyboard-only shape manipulation
+- Precision control: 1px nudging for pixel-perfect designs
+- Speed: 10px jumps for faster large movements
+- Accessibility: Full keyboard navigation support
+
+**Achievement:** EXCELLENT - Enhanced keyboard shortcuts and improved contextual awareness
+
+---
+
 ## Final Project Status 🏆
 
 ### Overall Achievement: 105/105 (EXCELLENT) + Multi-Project System + Manual Save
