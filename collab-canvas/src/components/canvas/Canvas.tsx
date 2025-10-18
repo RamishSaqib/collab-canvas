@@ -113,22 +113,20 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
   // Track if we should suppress change notifications (e.g., during AI operations)
   const suppressChangeNotificationRef = useRef(false);
 
-  // Wrap shape modification functions to notify parent of changes
+  // Wrap shape modification functions
+  // NOTE: Creates and deletes auto-save, so they should NOT trigger onShapesChange
+  // Only edits (updateShapes) require manual save, so they DO trigger onShapesChange
   const wrappedCreateShape = useCallback((...args: Parameters<typeof createShapeWithHistory>) => {
     const result = createShapeWithHistory(...args);
-    if (!suppressChangeNotificationRef.current) {
-      onShapesChange?.();
-    }
+    // No onShapesChange - creates auto-save
     return result;
-  }, [createShapeWithHistory, onShapesChange]);
+  }, [createShapeWithHistory]);
 
   const wrappedBatchCreate = useCallback((...args: Parameters<typeof batchCreateShapesWithHistory>) => {
     const result = batchCreateShapesWithHistory(...args);
-    if (!suppressChangeNotificationRef.current) {
-      onShapesChange?.();
-    }
+    // No onShapesChange - creates auto-save
     return result;
-  }, [batchCreateShapesWithHistory, onShapesChange]);
+  }, [batchCreateShapesWithHistory]);
 
   const wrappedUpdateShapes = useCallback((...args: Parameters<typeof updateShapesWithHistory>) => {
     updateShapesWithHistory(...args);
@@ -139,10 +137,8 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
 
   const wrappedDeleteShapes = useCallback((...args: Parameters<typeof deleteShapesWithHistory>) => {
     deleteShapesWithHistory(...args);
-    if (!suppressChangeNotificationRef.current) {
-      onShapesChange?.();
-    }
-  }, [deleteShapesWithHistory, onShapesChange]);
+    // No onShapesChange - deletes auto-save
+  }, [deleteShapesWithHistory]);
 
   // AI Agent for natural language commands
   const {
@@ -181,10 +177,9 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
     const allShapeIds = shapes.map(s => s.id);
     if (allShapeIds.length > 0) {
       wrappedDeleteShapes(allShapeIds);
-      // Explicitly trigger change notification for Clear All
-      onShapesChange?.();
+      // No onShapesChange - deletes auto-save
     }
-  }, [shapes, wrappedDeleteShapes, onShapesChange]);
+  }, [shapes, wrappedDeleteShapes]);
 
   const handleGenerateTestShapes = useCallback((count: number) => {
     const shapesToCreate = Array.from({ length: count }, (_, i) => ({
@@ -615,7 +610,8 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
 
     updateShapes(textShapeIds, { fontStyle: newStyle });
     console.log('📝 Toggled bold:', newStyle);
-  }, [selectedTextShapes, commonTextFormat, updateShapes]);
+    onShapesChange?.();
+  }, [selectedTextShapes, commonTextFormat, updateShapes, onShapesChange]);
 
   // Handle italic toggle for selected text shapes
   const handleItalicToggle = useCallback(() => {
@@ -637,7 +633,8 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
 
     updateShapes(textShapeIds, { fontStyle: newStyle });
     console.log('📝 Toggled italic:', newStyle);
-  }, [selectedTextShapes, commonTextFormat, updateShapes]);
+    onShapesChange?.();
+  }, [selectedTextShapes, commonTextFormat, updateShapes, onShapesChange]);
 
   // Alignment handlers
   const handleAlignLeft = useCallback(() => {
@@ -648,7 +645,8 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
       updateShape(id, update);
     });
     console.log('↔️ Aligned left');
-  }, [selectedShapeIds, shapes, updateShape]);
+    onShapesChange?.();
+  }, [selectedShapeIds, shapes, updateShape, onShapesChange]);
 
   const handleAlignCenter = useCallback(() => {
     if (selectedShapeIds.length < 2) return;
@@ -658,7 +656,8 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
       updateShape(id, update);
     });
     console.log('↔️ Aligned center');
-  }, [selectedShapeIds, shapes, updateShape]);
+    onShapesChange?.();
+  }, [selectedShapeIds, shapes, updateShape, onShapesChange]);
 
   const handleAlignRight = useCallback(() => {
     if (selectedShapeIds.length < 2) return;
@@ -668,7 +667,8 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
       updateShape(id, update);
     });
     console.log('↔️ Aligned right');
-  }, [selectedShapeIds, shapes, updateShape]);
+    onShapesChange?.();
+  }, [selectedShapeIds, shapes, updateShape, onShapesChange]);
 
   const handleAlignTop = useCallback(() => {
     if (selectedShapeIds.length < 2) return;
@@ -678,7 +678,8 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
       updateShape(id, update);
     });
     console.log('↕️ Aligned top');
-  }, [selectedShapeIds, shapes, updateShape]);
+    onShapesChange?.();
+  }, [selectedShapeIds, shapes, updateShape, onShapesChange]);
 
   const handleAlignMiddle = useCallback(() => {
     if (selectedShapeIds.length < 2) return;
@@ -688,7 +689,8 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
       updateShape(id, update);
     });
     console.log('↕️ Aligned middle');
-  }, [selectedShapeIds, shapes, updateShape]);
+    onShapesChange?.();
+  }, [selectedShapeIds, shapes, updateShape, onShapesChange]);
 
   const handleAlignBottom = useCallback(() => {
     if (selectedShapeIds.length < 2) return;
@@ -698,7 +700,8 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
       updateShape(id, update);
     });
     console.log('↕️ Aligned bottom');
-  }, [selectedShapeIds, shapes, updateShape]);
+    onShapesChange?.();
+  }, [selectedShapeIds, shapes, updateShape, onShapesChange]);
 
   const handleDistributeHorizontally = useCallback(() => {
     if (selectedShapeIds.length < 3) return;
@@ -708,7 +711,8 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
       updateShape(id, update);
     });
     console.log('↔️ Distributed horizontally');
-  }, [selectedShapeIds, shapes, updateShape]);
+    onShapesChange?.();
+  }, [selectedShapeIds, shapes, updateShape, onShapesChange]);
 
   const handleDistributeVertically = useCallback(() => {
     if (selectedShapeIds.length < 3) return;
@@ -718,7 +722,8 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
       updateShape(id, update);
     });
     console.log('↕️ Distributed vertically');
-  }, [selectedShapeIds, shapes, updateShape]);
+    onShapesChange?.();
+  }, [selectedShapeIds, shapes, updateShape, onShapesChange]);
 
   // Comment handlers
   const handleCommentSubmit = useCallback(async (text: string) => {
@@ -919,7 +924,10 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
     
     // Mark shape as inactive in RTDB (will clean up after 1 second)
     markShapeInactive(shapeId);
-  }, [updateShape, user.id, markShapeInactive]);
+    
+    // Notify parent that there are unsaved changes
+    onShapesChange?.();
+  }, [updateShape, user.id, markShapeInactive, onShapesChange]);
 
   // Handle text double-click to start editing - memoized
   const handleTextDoubleClick = useCallback((shapeId: string) => () => {
@@ -947,10 +955,12 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
         text: editingTextValue.trim(),
         lastModifiedBy: user.id,
       });
+      // Notify parent that there are unsaved changes
+      onShapesChange?.();
     }
     setEditingTextId(null);
     setEditingTextValue('');
-  }, [editingTextId, editingTextValue, updateShape, user.id]);
+  }, [editingTextId, editingTextValue, updateShape, user.id, onShapesChange]);
 
   // Handle text edit key events
   const handleTextEditKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -984,8 +994,10 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
       updateShapes(selectedShapeIds, { fill: selectedColor, lastModifiedBy: user.id });
       console.log('🎨 Applied color to', selectedShapeIds.length, 'shape(s)');
       onCloseColorPicker();
+      // Notify parent that there are unsaved changes
+      onShapesChange?.();
     }
-  }, [selectedShapeIds, selectedColor, updateShapes, user.id, onCloseColorPicker]);
+  }, [selectedShapeIds, selectedColor, updateShapes, user.id, onCloseColorPicker, onShapesChange]);
 
   // Performance test: Generate test shapes (optimized with batch operations)
   const generateTestShapes = useCallback(async (count: number) => {
@@ -1098,8 +1110,11 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
       
       updateShape(shapeId, updates);
       console.log('🔧 Transformed shape:', shapeId, updates);
+      
+      // Notify parent that there are unsaved changes
+      onShapesChange?.();
     }
-  }, [shapes, updateShape, user.id]);
+  }, [shapes, updateShape, user.id, onShapesChange]);
 
   // Calculate grid coordinates for selected shapes
   const gridCoordinates = useMemo(() => {
