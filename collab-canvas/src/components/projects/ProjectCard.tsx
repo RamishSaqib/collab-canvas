@@ -6,9 +6,11 @@ import './ProjectCard.css';
 interface ProjectCardProps {
   project: Project;
   onDelete: (id: string) => void;
+  onToggleFavorite: (id: string, currentValue: boolean) => void;
+  onDuplicate: (id: string) => void;
 }
 
-export default function ProjectCard({ project, onDelete }: ProjectCardProps) {
+export default function ProjectCard({ project, onDelete, onToggleFavorite, onDuplicate }: ProjectCardProps) {
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
 
@@ -20,6 +22,17 @@ export default function ProjectCard({ project, onDelete }: ProjectCardProps) {
     if (window.confirm(`Delete "${project.name}"? This action cannot be undone.`)) {
       onDelete(project.id);
     }
+    setShowMenu(false);
+  };
+
+  const handleToggleFavorite = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleFavorite(project.id, project.isFavorite);
+  };
+
+  const handleDuplicate = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onDuplicate(project.id);
     setShowMenu(false);
   };
 
@@ -43,12 +56,25 @@ export default function ProjectCard({ project, onDelete }: ProjectCardProps) {
     <div className="project-card" onClick={handleOpen}>
       {/* Thumbnail placeholder */}
       <div className="project-thumbnail">
-        <div className="thumbnail-placeholder">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <path d="M3 9h18M9 21V9" />
-          </svg>
-        </div>
+        {project.thumbnailUrl ? (
+          <img src={project.thumbnailUrl} alt={project.name} className="thumbnail-image" />
+        ) : (
+          <div className="thumbnail-placeholder">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M3 9h18M9 21V9" />
+            </svg>
+          </div>
+        )}
+        {/* Favorite button */}
+        <button
+          className={`favorite-button ${project.isFavorite ? 'favorited' : ''}`}
+          onClick={handleToggleFavorite}
+          title={project.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+          aria-label={project.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          {project.isFavorite ? '★' : '☆'}
+        </button>
       </div>
 
       {/* Project info */}
@@ -69,6 +95,9 @@ export default function ProjectCard({ project, onDelete }: ProjectCardProps) {
           </button>
           {showMenu && (
             <div className="project-menu" onClick={(e) => e.stopPropagation()}>
+              <button onClick={handleDuplicate} className="menu-item">
+                📋 Duplicate
+              </button>
               <button onClick={handleDelete} className="menu-item danger">
                 🗑️ Delete
               </button>

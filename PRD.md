@@ -236,9 +236,68 @@ Real-time collaborative canvas application (Figma-like) with multiplayer synchro
 
 ---
 
+### PR #23: Manual Save System ✅
+*Oct 18, 2025 - COMPLETE*
+
+**Achievements:**
+- Disabled all auto-save operations for true manual save behavior
+- Implemented full Firestore sync (creates, updates, AND deletes)
+- Clear All now properly marks as unsaved
+- Exit warning works correctly for unsaved changes
+
+**Changes Made:**
+1. ✅ Removed auto-persistence from all shape operations (create, update, delete)
+2. ✅ Removed `flushAllUpdates` on unmount and page unload
+3. ✅ Added `saveAllShapesToFirestore()` with full diff and sync logic
+4. ✅ Clear All triggers change notifications properly
+5. ✅ Cancel on exit truly discards unsaved changes
+6. ✅ Save Project performs full Firestore sync (adds, updates, deletes)
+
+**Behavior:**
+- ✅ Any canvas edit marks as "unsaved" without persisting
+- ✅ Only "Save Project" button persists changes to Firestore
+- ✅ Reload without saving truly discards changes
+- ✅ Works like traditional desktop apps with explicit save
+
+---
+
+### PR #24: Project Management Enhancements ✅
+*Oct 18, 2025 - COMPLETE*
+
+**Features:**
+1. ✅ **Duplicate Projects** - Clone projects with all shapes and thumbnails
+2. ✅ **Favorite Projects** - Star/unstar projects for quick access
+3. ✅ **Project Thumbnails** - Automatic thumbnail generation with white background
+4. ✅ **List View Layout** - Horizontal card layout for list view
+5. ✅ **Enhanced UI** - Hover effects and smooth animations
+
+**Implementation Details:**
+- `useProjects` hook: Added `duplicateProject()` and `toggleFavorite()` functions
+- `ProjectCard`: Added favorite star button (top-right overlay, always visible when favorited)
+- `ProjectCard`: Added duplicate option in context menu
+- `useThumbnail` hook: Generate JPEG thumbnails with white background (excludes Transformer)
+- List view CSS for horizontal card layout with thumbnail on left
+- Clear All properly removes thumbnail from Firestore using `deleteField()`
+
+**Technical:**
+- Duplicate copies all shapes from source project subcollection
+- Thumbnail generation: Captures canvas, adds white background, converts to JPEG (80% quality)
+- Favorite state stored in Firestore `isFavorite` field
+- Batch writes for efficient shape duplication
+- Null values converted to `deleteField()` for proper Firestore field removal
+
+**Bug Fixes:**
+- Fixed duplicate error with undefined thumbnailUrl
+- Fixed thumbnail not capturing shapes (filter by className instead of name)
+- Fixed black background in thumbnails (added white canvas layer)
+- Fixed Clear All not removing thumbnail (use deleteField for null values)
+- Fixed list view layout (horizontal cards with proper spacing)
+
+---
+
 ## Final Project Status 🏆
 
-### Overall Achievement: 105/105 (EXCELLENT) + Multi-Project System
+### Overall Achievement: 105/105 (EXCELLENT) + Multi-Project System + Manual Save
 
 **Section 1: Core Collaborative Infrastructure - 30/30 ✅**
 - Real-Time Synchronization: 12/12 (sub-100ms objects, sub-50ms cursors)

@@ -523,9 +523,55 @@
 
 ---
 
-## 🎉 PROJECT COMPLETE - ALL 22 PRs SHIPPED
+## PR #23: Manual Save System ✅
+*Oct 18, 2025 - COMPLETE*
 
-**Final Achievement: 105/105 (EXCELLENT across all 6 sections) + Multi-Project System**
+### Tasks Completed:
+1. ✅ Removed auto-save from all shape operations (create, update, delete, duplicate)
+2. ✅ Removed `flushAllUpdates` on unmount and page unload
+3. ✅ Removed `useBeforeUnload` hook usage
+4. ✅ Implemented `saveAllShapesToFirestore()` with full diff and sync
+5. ✅ Added Firestore query to get existing shapes for comparison
+6. ✅ Implemented batch delete for removed shapes
+7. ✅ Fixed Clear All to trigger change notifications
+8. ✅ Removed debug console logs
+9. ✅ Fixed TypeScript errors (db! assertions)
+10. ✅ Build and deploy to production
+
+---
+
+## PR #24: Project Management Enhancements ✅
+*Oct 18, 2025 - COMPLETE*
+
+### Tasks:
+1. ✅ Add `duplicateProject` function to `useProjects` hook
+2. ✅ Add `toggleFavorite` function to `useProjects` hook
+3. ✅ Update `ProjectCard` with favorite star button (top-right overlay)
+4. ✅ Update `ProjectCard` with duplicate option in context menu
+5. ✅ Wire up actions in `ProjectsPage` (onToggleFavorite, onDuplicate)
+6. ✅ Add CSS styling for favorite button with hover animations
+7. ✅ Add CSS styling for thumbnail image display
+8. ✅ Fix duplicate with undefined thumbnailUrl (conditional field inclusion)
+9. ✅ Fix thumbnail generation (filter by className, not name)
+10. ✅ Add white background to thumbnails (temp canvas + composite)
+11. ✅ Fix Clear All thumbnail removal (deleteField for null)
+12. ✅ Add list view CSS layout (horizontal cards)
+13. ✅ Remove debug logging
+14. ✅ Test features locally
+15. ✅ Deploy to production
+
+### Features:
+- **Duplicate Projects**: Clone any project with all shapes and thumbnail
+- **Favorite Projects**: Star/unstar projects for quick access
+- **Enhanced UI**: Smooth hover effects and animations
+- **Thumbnail Display**: Automatic JPEG thumbnails with white background
+- **List View**: Horizontal card layout with thumbnail on left
+
+---
+
+## 🎉 PROJECT CONTINUES - 24 PRs ACTIVE
+
+**Final Achievement: 105/105 (EXCELLENT across all 6 sections) + Multi-Project System + Manual Save**
 
 ### Completed Features:
 ✅ Real-time collaborative canvas with sub-50ms sync
@@ -538,8 +584,10 @@
 ✅ 500+ shapes @ 60 FPS performance
 ✅ 5+ concurrent users supported
 ✅ Multi-project management system
-✅ Project thumbnails with auto-save
-✅ Unsaved changes detection
+✅ Project thumbnails with manual save
+✅ Unsaved changes detection with exit warning
+✅ Manual save system (no auto-save)
+✅ Full Firestore sync (creates, updates, deletes)
 ✅ Comprehensive documentation
 ✅ Deployed to production
 

@@ -15,7 +15,7 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
   const navigate = useNavigate();
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const { projects, loading, createProject, deleteProject } = useProjects({ userId: user.id });
+  const { projects, loading, createProject, deleteProject, toggleFavorite, duplicateProject } = useProjects({ userId: user.id });
 
   const handleSignOut = async () => {
     try {
@@ -40,6 +40,17 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
 
   const handleDeleteProject = async (projectId: string) => {
     await deleteProject(projectId);
+  };
+
+  const handleToggleFavorite = async (projectId: string, currentValue: boolean) => {
+    await toggleFavorite(projectId, currentValue);
+  };
+
+  const handleDuplicateProject = async (projectId: string) => {
+    const newProjectId = await duplicateProject(projectId);
+    if (newProjectId) {
+      console.log('✅ Project duplicated successfully');
+    }
   };
 
   return (
@@ -134,6 +145,8 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
               key={project.id}
               project={project}
               onDelete={handleDeleteProject}
+              onToggleFavorite={handleToggleFavorite}
+              onDuplicate={handleDuplicateProject}
             />
           ))
         )}

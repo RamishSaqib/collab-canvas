@@ -84,10 +84,19 @@ export default function CanvasPage({ user }: CanvasPageProps) {
       const thumbnailUrl = await generateThumbnail(stageRef.current);
       
       // Update project with thumbnail and lastAccessedAt
-      await updateProject(projectId, {
-        thumbnailUrl: thumbnailUrl || undefined,
+      const updates: any = {
         lastAccessedAt: Date.now(),
-      });
+      };
+      
+      // Set thumbnailUrl to null to explicitly clear it when there are no shapes
+      // (updateProject will convert null to deleteField())
+      if (thumbnailUrl !== null) {
+        updates.thumbnailUrl = thumbnailUrl;
+      } else {
+        updates.thumbnailUrl = null;
+      }
+      
+      await updateProject(projectId, updates);
 
       setHasUnsavedChanges(false);
       setLastSaved(new Date());

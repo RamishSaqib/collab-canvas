@@ -19,10 +19,25 @@ export function useThumbnail(): UseThumbnailReturn {
     stage: Konva.Stage
   ): Promise<string | null> => {
     try {
-      // Get the stage's bounding box to capture all shapes
-      const shapes = stage.find('.shape'); // Assuming shapes have class 'shape'
+      // Get all layers from the stage
+      const layers = stage.getLayers();
+      
+      if (layers.length === 0) {
+        return null;
+      }
+      
+      const layer = layers[0]; // Get the first layer
+      const allChildren = layer.getChildren();
+      
+      // Filter out non-shape elements (Transformer, selection boxes, etc.)
+      // Keep everything except Transformer nodes
+      const shapes = allChildren.filter((node) => {
+        const className = node.className;
+        // Exclude Transformer and other non-shape nodes
+        return className !== 'Transformer';
+      });
+      
       if (shapes.length === 0) {
-        console.log('No shapes to capture for thumbnail');
         return null;
       }
 
@@ -57,18 +72,48 @@ export function useThumbnail(): UseThumbnailReturn {
       const targetHeight = 300;
       const scale = Math.min(targetWidth / width, targetHeight / height);
 
-      // Capture the stage as data URL (JPEG, medium quality)
-      const dataURL = stage.toDataURL({
+      // Create a temporary canvas to add white background
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        console.error('Failed to get canvas context');
+        return null;
+      }
+
+      // Set canvas size (scaled)
+      const scaledWidth = width * scale;
+      const scaledHeight = height * scale;
+      canvas.width = scaledWidth;
+      canvas.height = scaledHeight;
+
+      // Fill with white background
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, scaledWidth, scaledHeight);
+
+      // Get stage image data
+      const stageDataURL = stage.toDataURL({
         x: minX,
         y: minY,
         width: width,
         height: height,
         pixelRatio: scale,
-        mimeType: 'image/jpeg',
-        quality: 0.7, // Medium quality (0-1)
+        mimeType: 'image/png',
       });
 
-      console.log('✅ Thumbnail generated (base64)');
+      // Draw stage image on top of white background
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0);
+          resolve();
+        };
+        img.onerror = reject;
+        img.src = stageDataURL;
+      });
+
+      // Convert to JPEG with white background
+      const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+
       return dataURL;
     } catch (error) {
       console.error('❌ Error generating thumbnail:', error);

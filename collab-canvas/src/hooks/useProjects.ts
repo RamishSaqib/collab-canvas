@@ -8,8 +8,11 @@ import {
   deleteDoc,
   updateDoc,
   doc,
+  getDocs,
+  writeBatch,
   serverTimestamp,
-  Timestamp
+  Timestamp,
+  deleteField
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { Project } from '../lib/types';
@@ -133,11 +136,20 @@ export function useProjects({ userId }: UseProjectsProps) {
     }
     
     try {
-      const projectRef = doc(db, 'projects', projectId);
-      await updateDoc(projectRef, {
-        ...updates,
+      // Filter out undefined values and convert null to deleteField()
+      const filteredUpdates: any = {
         lastModifiedAt: Date.now(),
+      };
+      
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value !== undefined) {
+          // Use deleteField() for null values to remove the field from Firestore
+          filteredUpdates[key] = value === null ? deleteField() : value;
+        }
       });
+      
+      const projectRef = doc(db, 'projects', projectId);
+      await updateDoc(projectRef, filteredUpdates);
       console.log('✅ Project updated:', projectId);
       return true;
     } catch (err) {
@@ -147,6 +159,92 @@ export function useProjects({ userId }: UseProjectsProps) {
     }
   }, []);
 
+  /**
+   * Toggle favorite status of a project
+   */
+  const toggleFavorite = useCallback(async (projectId: string, currentValue: boolean): Promise<boolean> => {
+    if (!db) {
+      setError('Firestore not initialized');
+      return false;
+    }
+    
+    try {
+      const projectRef = doc(db, 'projects', projectId);
+      await updateDoc(projectRef, {
+        isFavorite: !currentValue,
+        lastModifiedAt: Date.now(),
+      });
+      console.log('✅ Project favorite toggled:', projectId);
+      return true;
+    } catch (err) {
+      console.error('❌ Error toggling favorite:', err);
+      setError(err instanceof Error ? err.message : 'Failed to toggle favorite');
+      return false;
+    }
+  }, []);
+
+  /**
+   * Duplicate a project (creates a copy with all shapes)
+   */
+  const duplicateProject = useCallback(async (projectId: string): Promise<string | null> => {
+    if (!db) {
+      setError('Firestore not initialized');
+      return null;
+    }
+    
+    try {
+      // Get the original project
+      const originalProject = projects.find(p => p.id === projectId);
+      if (!originalProject) {
+        throw new Error('Project not found');
+      }
+
+      // Create new project with "(Copy)" suffix
+      const newProjectData: any = {
+        name: `${originalProject.name} (Copy)`,
+        createdBy: userId,
+        createdAt: serverTimestamp(),
+        lastModifiedAt: serverTimestamp(),
+        lastAccessedAt: serverTimestamp(),
+        isFavorite: false,
+      };
+      
+      // Only include thumbnailUrl if it exists (Firestore doesn't allow undefined)
+      if (originalProject.thumbnailUrl) {
+        newProjectData.thumbnailUrl = originalProject.thumbnailUrl;
+      }
+      
+      const newProjectRef = await addDoc(collection(db, 'projects'), newProjectData);
+
+      // Get all shapes from the original project
+      const shapesQuery = query(collection(db, 'projects', projectId, 'shapes'));
+      const shapesSnapshot = await getDocs(shapesQuery);
+
+      // Copy all shapes to the new project
+      if (!shapesSnapshot.empty) {
+        const batch = writeBatch(db!);
+        shapesSnapshot.docs.forEach((shapeDoc) => {
+          const shapeData = shapeDoc.data();
+          const newShapeRef = doc(collection(db!, 'projects', newProjectRef.id, 'shapes'));
+          batch.set(newShapeRef, {
+            ...shapeData,
+            createdAt: Date.now(),
+            lastModifiedAt: Date.now(),
+          });
+        });
+        await batch.commit();
+        console.log(`✅ Duplicated ${shapesSnapshot.docs.length} shapes`);
+      }
+
+      console.log('✅ Project duplicated:', newProjectRef.id);
+      return newProjectRef.id;
+    } catch (err) {
+      console.error('❌ Error duplicating project:', err);
+      setError(err instanceof Error ? err.message : 'Failed to duplicate project');
+      return null;
+    }
+  }, [userId, projects]);
+
   return {
     projects,
     loading,
@@ -154,6 +252,8 @@ export function useProjects({ userId }: UseProjectsProps) {
     createProject,
     deleteProject,
     updateProject,
+    toggleFavorite,
+    duplicateProject,
   };
 }
 
