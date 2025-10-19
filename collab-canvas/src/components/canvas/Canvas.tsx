@@ -1469,6 +1469,9 @@ export default function Canvas({ user, projectId, readOnly, mode, onModeChange, 
         const isBold = fontStyle === 'bold' || fontStyle === 'bold italic';
         const isItalic = fontStyle === 'italic' || fontStyle === 'bold italic';
         
+        // Use the shape's actual color for the input text
+        const textColor = editingShape?.fill || '#000000';
+        
         return (
         <input
           ref={textInputRef}
@@ -1489,6 +1492,7 @@ export default function Canvas({ user, projectId, readOnly, mode, onModeChange, 
             padding: '2px 4px',
             outline: 'none',
             backgroundColor: 'white',
+            color: textColor,
             zIndex: 1000,
             minWidth: '100px',
           }}
