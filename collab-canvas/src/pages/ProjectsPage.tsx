@@ -13,7 +13,7 @@ interface ProjectsPageProps {
   user: User;
 }
 
-type FilterType = 'all' | 'favorites' | 'recent';
+type FilterType = 'all' | 'favorites' | 'recent' | 'shared';
 type SortType = 'lastAccessed' | 'created' | 'alphabetical';
 
 export default function ProjectsPage({ user }: ProjectsPageProps) {
@@ -174,6 +174,9 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
       // Recent = accessed within last 7 days
       const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
       result = result.filter(p => p.lastAccessedAt >= sevenDaysAgo);
+    } else if (filter === 'shared') {
+      // Shared with me = not owned by current user
+      result = result.filter(p => p.createdBy !== user.id);
     }
 
     // Apply search
@@ -253,6 +256,12 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
           >
             🕒 Recent
           </button>
+          <button 
+            className={`filter-tab ${filter === 'shared' ? 'active' : ''}`}
+            onClick={() => setFilter('shared')}
+          >
+            👥 Shared with me
+          </button>
         </div>
         
         <div className="view-controls">
@@ -304,18 +313,19 @@ export default function ProjectsPage({ user }: ProjectsPageProps) {
         ) : filteredProjects.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">
-              {filter === 'favorites' ? '⭐' : filter === 'recent' ? '🕒' : '🔍'}
+              {filter === 'favorites' ? '⭐' : filter === 'recent' ? '🕒' : filter === 'shared' ? '👥' : '🔍'}
             </div>
             <h2>
               {searchQuery ? 'No matching projects' : 
                filter === 'favorites' ? 'No favorite projects' :
-               filter === 'recent' ? 'No recent projects' : 'No projects found'}
+               filter === 'recent' ? 'No recent projects' :
+               filter === 'shared' ? 'No shared projects' : 'No projects found'}
             </h2>
             <p>
               {searchQuery ? `No projects match "${searchQuery}"` :
                filter === 'favorites' ? 'Star projects to see them here' :
                filter === 'recent' ? 'Projects accessed in the last 7 days will appear here' : 
-               'Try adjusting your filters'}
+               filter === 'shared' ? 'Projects shared with you will appear here' : 'Try adjusting your filters'}
             </p>
           </div>
         ) : (

@@ -11,6 +11,7 @@ import { useProjects } from '../hooks/useProjects';
 import type { User } from '../lib/types';
 import type Konva from 'konva';
 import '../App.css';
+import { useToast } from '../components/ToastContainer';
 
 interface CanvasPageProps {
   user: User;
@@ -32,6 +33,7 @@ export default function CanvasPage({ user }: CanvasPageProps) {
   
   const { generateThumbnail } = useThumbnail();
   const { projects, updateProject } = useProjects({ userId: user.id, userEmail: user.email });
+  const { showToast } = useToast();
   
   // Get current project
   const currentProject = projects.find(p => p.id === projectId);
@@ -123,7 +125,14 @@ export default function CanvasPage({ user }: CanvasPageProps) {
         // Public viewers not listed as editor are view-only
         setCanEdit(Boolean(isEditor));
 
-        // If public and viewer not listed in collaborators, add as viewer in UI (owner will still manage elevation)
+        // If project is private and user is not owner/collaborator, block access
+        if (!data.isPublic && !isOwner && !collabRole) {
+          showToast('You do not have access to this private project.', 'error');
+          navigate('/projects');
+          return;
+        }
+
+        // If public and viewer not listed in collaborators, add as viewer in UI (owner can promote later)
         if (data.isPublic && !isOwner && !collabRole) {
           // Add lightweight viewer to collaborators for display purposes
           // Owner can later promote to editor; writes are allowed by rules for collaborator fields only

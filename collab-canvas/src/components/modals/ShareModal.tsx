@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Project } from '../../lib/types';
 import './ShareModal.css';
 
@@ -28,6 +28,8 @@ export default function ShareModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [draftIsPublic, setDraftIsPublic] = useState(project.isPublic);
+  const [draftCollaborators, setDraftCollaborators] = useState(project.collaborators);
 
   useEffect(() => {
     if (!isOpen) {
@@ -37,11 +39,41 @@ export default function ShareModal({
     }
   }, [isOpen]);
 
+  // Reset drafts when project or open state changes
+  useEffect(() => {
+    if (isOpen) {
+      setDraftIsPublic(project.isPublic);
+      setDraftCollaborators(project.collaborators);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const shareUrl = `${window.location.origin}/canvas/${project.id}`;
   
   const isOwner = project.collaborators.find(c => c.userId === currentUserId)?.role === 'owner';
+
+  const hasChanges = useMemo(() => {
+    if (draftIsPublic !== project.isPublic) return true;
+    const orig = project.collaborators.map(c => ({ userId: c.userId, role: c.role, email: c.email || '' }))
+      .sort((a, b) => a.userId.localeCompare(b.userId));
+    const draft = draftCollaborators.map(c => ({ userId: c.userId, role: c.role, email: c.email || '' }))
+      .sort((a, b) => a.userId.localeCompare(b.userId));
+    return JSON.stringify(orig) !== JSON.stringify(draft);
+  }, [draftIsPublic, draftCollaborators, project.isPublic, project.collaborators]);
+
+  const tryClose = useCallback(async () => {
+    if (!hasChanges) {
+      onClose();
+      return;
+    }
+    const wantsSave = window.confirm('You have unsaved changes. Save before closing?');
+    if (wantsSave) {
+      await handleSave();
+    } else {
+      onClose();
+    }
+  }, [hasChanges]);
 
   const handleCopyLink = async () => {
     try {
@@ -53,13 +85,8 @@ export default function ShareModal({
     }
   };
 
-  const handleTogglePublic = async () => {
-    try {
-      await onUpdateProject(project.id, { isPublic: !project.isPublic });
-    } catch (err) {
-      console.error('Failed to toggle public:', err);
-      setError('Failed to update project visibility');
-    }
+  const handleTogglePublic = () => {
+    setDraftIsPublic(prev => !prev);
   };
 
   const handleAddCollaborator = async (e: React.FormEvent) => {
@@ -68,45 +95,81 @@ export default function ShareModal({
 
     setIsLoading(true);
     setError(null);
-
     try {
-      await onAddCollaborator(project.id, email.trim(), role);
+      const newCollab = { userId: email.trim(), email: email.trim(), role, addedAt: Date.now() } as any;
+      // Prevent duplicates
+      if (!draftCollaborators.some(c => c.userId === newCollab.userId)) {
+        setDraftCollaborators(prev => [...prev, newCollab]);
+      }
       setEmail('');
       setRole('editor');
     } catch (err) {
-      console.error('Failed to add collaborator:', err);
-      setError(err instanceof Error ? err.message : 'Failed to add collaborator');
+      console.error('Failed to add collaborator (draft):', err);
+      setError('Failed to add collaborator');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleRemoveCollaborator = async (userId: string) => {
+  const handleRemoveCollaborator = (userId: string) => {
     if (!window.confirm('Remove this collaborator?')) return;
-
-    try {
-      await onRemoveCollaborator(project.id, userId);
-    } catch (err) {
-      console.error('Failed to remove collaborator:', err);
-      setError('Failed to remove collaborator');
-    }
+    setDraftCollaborators(prev => prev.filter(c => c.userId !== userId));
   };
 
-  const handleChangeRole = async (userId: string, newRole: 'editor' | 'viewer') => {
+  const handleChangeRole = (userId: string, newRole: 'editor' | 'viewer') => {
+    setDraftCollaborators(prev => prev.map(c => c.userId === userId ? { ...c, role: newRole } : c));
+  };
+
+  const handleSave = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      await onUpdateCollaboratorRole(project.id, userId, newRole);
+      // Update project visibility
+      if (draftIsPublic !== project.isPublic) {
+        await onUpdateProject(project.id, { isPublic: draftIsPublic });
+      }
+
+      // Diff collaborators
+      const origMap = new Map(project.collaborators.map(c => [c.userId, c.role] as const));
+      const draftMap = new Map(draftCollaborators.map(c => [c.userId, c.role] as const));
+
+      // Additions
+      for (const [userId, role] of draftMap) {
+        if (!origMap.has(userId)) {
+          const addRole = role === 'owner' ? 'editor' : role;
+          await onAddCollaborator(project.id, userId, addRole);
+        }
+      }
+      // Removals
+      for (const [userId] of origMap) {
+        if (!draftMap.has(userId)) {
+          await onRemoveCollaborator(project.id, userId);
+        }
+      }
+      // Role changes
+      for (const [userId, newRole] of draftMap) {
+        const oldRole = origMap.get(userId);
+        if (oldRole && oldRole !== newRole) {
+          const updateRole = newRole === 'owner' ? 'editor' : newRole;
+          await onUpdateCollaboratorRole(project.id, userId, updateRole);
+        }
+      }
+
+      onClose();
     } catch (err) {
-      console.error('Failed to update role:', err);
-      setError('Failed to update role');
+      console.error('Failed to save sharing settings:', err);
+      setError('Failed to save changes');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={tryClose}>
       <div className="modal-content share-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Share "{project.name}"</h2>
-          <button className="modal-close" onClick={onClose}>×</button>
+          <button className="modal-close" onClick={tryClose}>×</button>
         </div>
 
         <div className="modal-body">
@@ -132,17 +195,17 @@ export default function ShareModal({
               <label className="share-label toggle-label">
                 <input
                   type="checkbox"
-                  checked={project.isPublic}
+                  checked={draftIsPublic}
                   onChange={handleTogglePublic}
                   className="toggle-checkbox"
                 />
                 <span className="toggle-switch"></span>
                 <span className="toggle-text">
-                  {project.isPublic ? '🌐 Public' : '🔒 Private'}
+                  {draftIsPublic ? '🌐 Public' : '🔒 Private'}
                 </span>
               </label>
               <p className="share-hint">
-                {project.isPublic
+                {draftIsPublic
                   ? 'Anyone with the link can view this project'
                   : 'Only invited collaborators can access'}
               </p>
@@ -182,10 +245,10 @@ export default function ShareModal({
           {/* Collaborators List */}
           <div className="share-section">
             <label className="share-label">
-              Collaborators ({project.collaborators.length})
+              Collaborators ({draftCollaborators.length})
             </label>
             <div className="collaborators-list">
-              {project.collaborators.map((collaborator) => (
+              {draftCollaborators.map((collaborator) => (
                 <div key={collaborator.userId} className="collaborator-item">
                   <div className="collaborator-info">
                     <span className="collaborator-email">
@@ -221,9 +284,14 @@ export default function ShareModal({
         </div>
 
         <div className="modal-footer">
-          <button onClick={onClose} className="btn-secondary">
+          <button onClick={tryClose} className="btn-secondary">
             Close
           </button>
+          {isOwner && (
+            <button onClick={handleSave} className="btn-primary-save" disabled={!hasChanges || isLoading}>
+              {isLoading ? 'Saving...' : hasChanges ? 'Save changes' : 'Saved'}
+            </button>
+          )}
         </div>
       </div>
     </div>
