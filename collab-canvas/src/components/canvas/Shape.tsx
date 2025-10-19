@@ -194,7 +194,7 @@ function Shape({ shape, isSelected, isActive, activeBy, onSelect, onDragStart, o
         onMouseEnter={(e) => {
           const container = e.target.getStage()?.container();
           if (container) {
-            container.style.cursor = 'move';
+            container.style.cursor = isDraggable ? 'move' : 'default';
           }
           setIsHovered(true);
         }}

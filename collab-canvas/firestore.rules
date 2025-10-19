@@ -32,12 +32,21 @@ service cloud.firestore {
       );
     }
     
+    function isEditor(projectData) {
+      return (
+        ('editorIds' in projectData && request.auth.uid in projectData.editorIds) ||
+        (
+          // Allow by email if stored (best-effort; requires custom auth with email in token)
+          'editorEmails' in projectData &&
+          request.auth.token.email != null &&
+          request.auth.token.email in projectData.editorEmails
+        )
+      );
+    }
+
     function canEditProject(projectData) {
-      // Allow editing if:
-      // 1. User is the owner
-      // 2. User is adding themselves to a public project (for auto-add collaborator)
-      return isOwner(projectData) || 
-             (projectData.isPublic == true && isAuthenticated());
+      // Allow editing only if user is owner or listed in editorIds
+      return isOwner(projectData) || isEditor(projectData);
     }
     
     // Projects - with collaboration support
@@ -49,24 +58,26 @@ service cloud.firestore {
       allow create: if isAuthenticated() && 
                     request.auth.uid == request.resource.data.createdBy;
       
-      // Allow update if user is owner OR if it's a public project (for adding collaborators)
-      allow update: if isOwner(resource.data) || 
-                       (resource.data.isPublic == true && isAuthenticated());
+      // Allow update if user is owner OR user is editor (managed via editorIds/editorEmails)
+      allow update: if canEditProject(resource.data) ||
+                    (
+                      // Allow authenticated viewers on public projects to add themselves to collaborators as viewer only
+                      resource.data.isPublic == true && isAuthenticated() &&
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['collaborators', 'collaboratorIds', 'lastModifiedAt']) &&
+                      request.resource.data.collaborators.size() == (resource.data.collaborators.size() + 1) &&
+                      request.resource.data.collaboratorIds.size() == (resource.data.collaboratorIds.size() + 1)
+                    );
       
       // Allow delete only if user is owner
       allow delete: if isOwner(resource.data);
       
       // Shapes within a project
       match /shapes/{shapeId} {
-        // Simplified: Allow read/write if authenticated AND (owner OR public project)
-        // This avoids race conditions with collaboratorIds updates
-        allow read: if isAuthenticated() && 
-                       (get(/databases/$(database)/documents/projects/$(projectId)).data.createdBy == request.auth.uid ||
-                        get(/databases/$(database)/documents/projects/$(projectId)).data.isPublic == true);
-        
-        allow write: if isAuthenticated() && 
-                        (get(/databases/$(database)/documents/projects/$(projectId)).data.createdBy == request.auth.uid ||
-                         get(/databases/$(database)/documents/projects/$(projectId)).data.isPublic == true);
+        // Allow read for any authenticated user who can view the project (owner, collaborator, or public)
+        allow read: if isAuthenticated() && canViewProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
+
+        // Allow write only for owner or editorIds
+        allow write: if isAuthenticated() && canEditProject(get(/databases/$(database)/documents/projects/$(projectId)).data);
       }
       
       // Comments within a project

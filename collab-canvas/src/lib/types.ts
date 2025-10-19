@@ -165,6 +165,8 @@ export interface Project {
   hasUnsavedChanges?: boolean; // Client-side only
   collaborators: Collaborator[]; // Array of collaborators with roles
   isPublic: boolean;          // Anyone with link can view
+  editorIds?: string[];       // Flat array of userIds with edit rights (owner included)
+  editorEmails?: string[];    // Flat array of emails with edit rights (for email invites)
 }
 
 export type ProjectSortOption = 'lastAccessed' | 'created' | 'alphabetical';

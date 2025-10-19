@@ -189,6 +189,7 @@ export function useProjects({ userId, userEmail }: UseProjectsProps) {
         isFavorite: false,
         collaborators: [ownerCollaborator],
         collaboratorIds: [userId], // Flat array for efficient Firestore queries
+        editorIds: [userId], // Owner is editor by default
         isPublic: false,
       });
       
@@ -316,6 +317,7 @@ export function useProjects({ userId, userEmail }: UseProjectsProps) {
           }
         ],
         collaboratorIds: [userId], // Initialize with owner
+        editorIds: [userId], // Owner is editor
         isPublic: false,
       };
       
@@ -421,9 +423,23 @@ export function useProjects({ userId, userEmail }: UseProjectsProps) {
       }
 
       const projectRef = doc(db, 'projects', projectId);
+      const nextCollaborators = [...project.collaborators, newCollaborator];
+      const nextCollaboratorIds = [...(project.collaborators.map(c => c.userId)), userIdOrEmail];
+      // Maintain editorIds by UID and editorEmails for email invites
+      const currentEditorIds: string[] = (project as any).editorIds || [project.createdBy];
+      const currentEditorEmails: string[] = (project as any).editorEmails || [];
+      const nextEditorIds = newCollaborator.role === 'editor' && userIdOrEmail.length > 20 // heuristic UID length
+        ? Array.from(new Set([...currentEditorIds, userIdOrEmail]))
+        : currentEditorIds;
+      const nextEditorEmails = newCollaborator.role === 'editor' && userIdOrEmail.includes('@')
+        ? Array.from(new Set([...currentEditorEmails, userIdOrEmail.toLowerCase()]))
+        : currentEditorEmails;
+
       await updateDoc(projectRef, {
-        collaborators: [...project.collaborators, newCollaborator],
-        collaboratorIds: [...(project.collaborators.map(c => c.userId)), userIdOrEmail], // Update flat array
+        collaborators: nextCollaborators,
+        collaboratorIds: nextCollaboratorIds,
+        editorIds: nextEditorIds,
+        editorEmails: nextEditorEmails,
         lastModifiedAt: Date.now(),
       });
       
@@ -463,9 +479,13 @@ export function useProjects({ userId, userEmail }: UseProjectsProps) {
       }
 
       const projectRef = doc(db, 'projects', projectId);
+      const nextEditorIds = ((project as any).editorIds || [project.createdBy]).filter((id: string) => id !== collaboratorUserId);
+      const nextEditorEmails = ((project as any).editorEmails || []).filter((em: string) => em !== collaboratorUserId.toLowerCase());
       await updateDoc(projectRef, {
         collaborators: updatedCollaborators,
         collaboratorIds: updatedCollaborators.map(c => c.userId), // Update flat array
+        editorIds: nextEditorIds,
+        editorEmails: nextEditorEmails,
         lastModifiedAt: Date.now(),
       });
       
@@ -502,8 +522,22 @@ export function useProjects({ userId, userEmail }: UseProjectsProps) {
       );
 
       const projectRef = doc(db, 'projects', projectId);
+      const editorIdsSet = new Set<string>(((project as any).editorIds || [project.createdBy]));
+      const editorEmailsSet = new Set<string>(((project as any).editorEmails || []));
+      if (newRole === 'editor') {
+        if (collaboratorUserId.includes('@')) {
+          editorEmailsSet.add(collaboratorUserId.toLowerCase());
+        } else {
+          editorIdsSet.add(collaboratorUserId);
+        }
+      } else {
+        editorIdsSet.delete(collaboratorUserId);
+        editorEmailsSet.delete(collaboratorUserId.toLowerCase());
+      }
       await updateDoc(projectRef, {
         collaborators: updatedCollaborators,
+        editorIds: Array.from(editorIdsSet),
+        editorEmails: Array.from(editorEmailsSet),
         lastModifiedAt: Date.now(),
       });
       

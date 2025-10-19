@@ -40,6 +40,7 @@ interface CanvasProps {
     color: string;
   };
   projectId: string;
+  readOnly?: boolean;
   mode: CanvasMode;
   onModeChange: (mode: CanvasMode) => void;
   selectedColor: string;
@@ -52,7 +53,7 @@ interface CanvasProps {
   onShapesChange?: () => void;
 }
 
-export default function Canvas({ user, projectId, mode, onModeChange, selectedColor, onColorChange, showColorPicker, onCloseColorPicker, onGenerateTestShapes, onClearAllShapes, onStageReady, onShapesChange }: CanvasProps) {
+export default function Canvas({ user, projectId, readOnly, mode, onModeChange, selectedColor, onColorChange, showColorPicker, onCloseColorPicker, onGenerateTestShapes, onClearAllShapes, onStageReady, onShapesChange }: CanvasProps) {
   const [stageSize, setStageSize] = useState(fitStageToWindow());
   const [stageScale, setStageScale] = useState(1);
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
@@ -159,6 +160,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
 
   // Wrap AI command to suppress change notifications during execution
   const wrappedAICommand = useCallback(async (command: string) => {
+    if (readOnly) return { success: false, message: 'Read-only mode' };
     suppressChangeNotificationRef.current = true;
     try {
       const result = await processAICommand(command);
@@ -170,18 +172,20 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
     } finally {
       suppressChangeNotificationRef.current = false;
     }
-  }, [processAICommand, onShapesChange]);
+  }, [processAICommand, onShapesChange, readOnly]);
 
   // Handlers for Clear All and Generate Test Shapes
   const handleClearAll = useCallback(() => {
+    if (readOnly) return;
     const allShapeIds = shapes.map(s => s.id);
     if (allShapeIds.length > 0) {
       wrappedDeleteShapes(allShapeIds);
       // No onShapesChange - deletes auto-save
     }
-  }, [shapes, wrappedDeleteShapes]);
+  }, [shapes, wrappedDeleteShapes, readOnly]);
 
   const handleGenerateTestShapes = useCallback((count: number) => {
+    if (readOnly) return;
     const shapesToCreate = Array.from({ length: count }, (_, i) => ({
       x: Math.random() * 800 - 400,
       y: Math.random() * 600 - 300,
@@ -190,16 +194,18 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
       color: selectedColor,
     }));
     batchCreateShapesWithHistory(shapesToCreate);
-  }, [user.id, selectedColor, batchCreateShapesWithHistory]);
+  }, [user.id, selectedColor, batchCreateShapesWithHistory, readOnly]);
 
   // Expose AI command handler, save function, and shape operations via window
   useEffect(() => {
-    (window as any).__processAICommand = wrappedAICommand;
-    (window as any).__isAIProcessing = isAIProcessing;
-    (window as any).__aiError = aiError;
-    (window as any).__saveAllShapesToFirestore = saveAllShapesToFirestore;
-    (window as any).__clearAllShapes = handleClearAll;
-    (window as any).__generateTestShapes = handleGenerateTestShapes;
+    if (!readOnly) {
+      (window as any).__processAICommand = wrappedAICommand;
+      (window as any).__isAIProcessing = isAIProcessing;
+      (window as any).__aiError = aiError;
+      (window as any).__saveAllShapesToFirestore = saveAllShapesToFirestore;
+      (window as any).__clearAllShapes = handleClearAll;
+      (window as any).__generateTestShapes = handleGenerateTestShapes;
+    }
     
     return () => {
       delete (window as any).__processAICommand;
@@ -209,7 +215,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
       delete (window as any).__clearAllShapes;
       delete (window as any).__generateTestShapes;
     };
-  }, [wrappedAICommand, isAIProcessing, aiError, saveAllShapesToFirestore, handleClearAll, handleGenerateTestShapes]);
+  }, [wrappedAICommand, isAIProcessing, aiError, saveAllShapesToFirestore, handleClearAll, handleGenerateTestShapes, readOnly]);
 
   const { otherCursors, broadcastCursor } = useCursors({
     projectId,
@@ -402,7 +408,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
 
   // Handle keyboard shortcuts
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent) => {
       // Check if user is typing in an input/textarea (don't interfere with text editing)
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || editingTextId) {
@@ -411,6 +417,11 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
 
       // Ctrl/Cmd key shortcuts
       if (e.ctrlKey || e.metaKey) {
+      if (readOnly) {
+        // Block mutation shortcuts in read-only
+        e.preventDefault();
+        return;
+      }
         if (e.key === 'z' || e.key === 'Z') {
           // Ctrl+Z: Undo or Ctrl+Shift+Z: Redo
           e.preventDefault();
@@ -482,22 +493,22 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
-      } else if (e.key === 'r' || e.key === 'R') {
+      } else if ((e.key === 'r' || e.key === 'R') && !readOnly) {
         onModeChange('rectangle');
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
-      } else if (e.key === 'c' || e.key === 'C') {
+      } else if ((e.key === 'c' || e.key === 'C') && !readOnly) {
         onModeChange('circle');
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
-      } else if (e.key === 't' || e.key === 'T') {
+      } else if ((e.key === 't' || e.key === 'T') && !readOnly) {
         onModeChange('triangle');
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
-      } else if (e.key === 'a' || e.key === 'A') {
+      } else if ((e.key === 'a' || e.key === 'A') && !readOnly) {
         onModeChange('text');
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
@@ -508,7 +519,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
-      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      } else if (!readOnly && (e.key === 'Delete' || e.key === 'Backspace')) {
         // Delete selected shapes
         if (selectedShapeIds.length > 0) {
           e.preventDefault(); // Prevent browser back navigation on Backspace
@@ -524,7 +535,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
         // Show keyboard shortcuts help modal
         e.preventDefault();
         setShowShortcuts(true);
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      } else if (!readOnly && (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
         // Arrow keys: nudge selected shapes or cycle through selection
         if (selectedShapeIds.length > 0) {
           e.preventDefault();
@@ -540,14 +551,10 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
           if (e.key === 'ArrowUp') dy = -nudgeDistance;
           if (e.key === 'ArrowDown') dy = nudgeDistance;
           
-          // Nudge all selected shapes
           selectedShapeIds.forEach(id => {
-            const shape = shapes.find(s => s.id === id);
-            if (shape) {
-              updateShapes([id], {
-                x: shape.x + dx,
-                y: shape.y + dy,
-              });
+            const s = shapes.find(sh => sh.id === id);
+            if (s) {
+              updateShapes([id], { x: s.x + dx, y: s.y + dy, lastModifiedBy: user.id });
             }
           });
         }
@@ -556,7 +563,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onModeChange, clearSelection, wrappedDeleteShapes, duplicateShapes, selectAll, updateShapes, selectedShapeIds, editingTextId, user.id, shapes, activeSelectionIndex, stageScale, undo, redo, canUndo, canRedo]);
+  }, [onModeChange, clearSelection, wrappedDeleteShapes, duplicateShapes, selectAll, updateShapes, selectedShapeIds, editingTextId, user.id, shapes, activeSelectionIndex, stageScale, undo, redo, canUndo, canRedo, readOnly]);
 
   // Determine if text format bar should be shown and get common formatting
   const selectedTextShapes = useMemo(() => {
@@ -795,7 +802,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
   const handleStageClick = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
     // If clicking on the stage itself (not a shape)
     if (e.target === e.target.getStage()) {
-      if (mode === 'comment') {
+      if (!readOnly && mode === 'comment') {
         // Create comment at click position
         const stage = stageRef.current;
         if (stage) {
@@ -807,7 +814,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
             setCommentInputDialog({ x: canvasPos.x, y: canvasPos.y });
           }
         }
-      } else if (mode === 'rectangle' || mode === 'circle' || mode === 'triangle' || mode === 'text') {
+      } else if (!readOnly && (mode === 'rectangle' || mode === 'circle' || mode === 'triangle' || mode === 'text')) {
         // Create shape at click position based on current mode with selected color
         const stage = stageRef.current;
         if (stage) {
@@ -820,7 +827,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
         clearSelection();
       }
     }
-  }, [mode, wrappedCreateShape, clearSelection, user.id, selectedColor]);
+  }, [mode, wrappedCreateShape, clearSelection, user.id, selectedColor, readOnly]);
 
   // Manual panning or selection box: Handle mouse down on stage - memoized
   const handleStageMouseDown = useCallback((e: Konva.KonvaEventObject<MouseEvent>) => {
@@ -893,29 +900,32 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
 
   // Handle shape drag start - memoized
   const handleShapeDragStart = useCallback((shapeId: string) => () => {
+    if (readOnly) return;
     const shape = shapes.find(s => s.id === shapeId);
     if (shape) {
       // Mark shape as active in RTDB for ultra-low latency updates
       markShapeActive(shapeId, shape.x, shape.y, 'drag');
       console.log('⚡ Shape drag started, marked active in RTDB:', shapeId);
     }
-  }, [shapes, markShapeActive]);
+  }, [shapes, markShapeActive, readOnly]);
 
   // Handle shape drag move - memoized  
   const handleShapeDragMove = useCallback((shapeId: string) => (e: Konva.KonvaEventObject<DragEvent>) => {
+    if (readOnly) return;
     // Update position in RTDB immediately (no debounce, ~20ms latency)
     updateActivePosition(shapeId, e.target.x(), e.target.y());
     // Skip Firestore update during drag (will update on drag end)
-  }, [updateActivePosition]);
+  }, [updateActivePosition, readOnly]);
 
   // Handle shape drag end - memoized
   const handleShapeDragEnd = useCallback((shapeId: string) => (e: Konva.KonvaEventObject<DragEvent>) => {
+    if (readOnly) return;
     const finalX = e.target.x();
     const finalY = e.target.y();
     
-    console.log('⚡ Shape drag ended, saving final position to Firestore:', shapeId);
+    console.log('⚡ Shape drag ended (manual save mode):', shapeId);
     
-    // Update final position in Firestore (debounced 100ms)
+    // Local-only update; persists only on Save Project
     updateShape(shapeId, {
       x: finalX,
       y: finalY,
@@ -927,10 +937,11 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
     
     // Notify parent that there are unsaved changes
     onShapesChange?.();
-  }, [updateShape, user.id, markShapeInactive, onShapesChange]);
+  }, [updateShape, user.id, markShapeInactive, onShapesChange, readOnly]);
 
   // Handle text double-click to start editing - memoized
   const handleTextDoubleClick = useCallback((shapeId: string) => () => {
+    if (readOnly) return;
     const shape = shapes.find(s => s.id === shapeId);
     if (shape && shape.type === 'text') {
       setEditingTextId(shapeId);
@@ -938,7 +949,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
       // Select only this text shape for formatting
       selectShapes([shapeId]);
     }
-  }, [shapes, selectShapes]);
+  }, [shapes, selectShapes, readOnly]);
 
   // Focus text input when editing starts
   useEffect(() => {
@@ -950,6 +961,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
 
   // Handle text edit submit
   const handleTextEditSubmit = useCallback(() => {
+    if (readOnly) return;
     if (editingTextId && editingTextValue.trim()) {
       updateShape(editingTextId, {
         text: editingTextValue.trim(),
@@ -960,7 +972,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
     }
     setEditingTextId(null);
     setEditingTextValue('');
-  }, [editingTextId, editingTextValue, updateShape, user.id, onShapesChange]);
+  }, [editingTextId, editingTextValue, updateShape, user.id, onShapesChange, readOnly]);
 
   // Handle text edit key events
   const handleTextEditKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -1191,8 +1203,8 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
                 onTextDoubleClick={shape.type === 'text' ? handleTextDoubleClick(shape.id) : undefined}
                 userName={lastModifiedUserName}
                 userColor={user.color}
-                isDraggable={mode !== 'hand'} // Disable dragging in hand mode
-                isListening={mode !== 'hand'} // Disable all interactions in hand mode
+                isDraggable={!readOnly && mode !== 'hand'} // Disable dragging in hand mode or read-only
+                isListening={mode !== 'hand'} // Keep selection/hover in select mode; hand mode disables
                 shapeRef={(node: Konva.Node | null) => {
                   if (node) {
                     shapeRefsMap.current.set(shape.id, node);
@@ -1205,6 +1217,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
           })}
           
           {/* Transformer for resize and rotate */}
+          {!readOnly && (
           <Transformer
             ref={transformerRef}
             onTransformEnd={handleTransformEnd}
@@ -1236,7 +1249,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
               }
               return newBox;
             }}
-          />
+          />)}
           
           {/* Render other users' cursors (only online users) */}
           {onlineCursors.map(cursor => (
@@ -1495,7 +1508,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
       )}
 
       {/* Text formatting toolbar */}
-      {showTextFormatBar && (
+      {!readOnly && showTextFormatBar && (
         <TextFormatBar
           fontSize={commonTextFormat.fontSize}
           fontStyle={commonTextFormat.fontStyle}
@@ -1506,7 +1519,7 @@ export default function Canvas({ user, projectId, mode, onModeChange, selectedCo
       )}
 
       {/* Alignment toolbar - shows when 2+ shapes selected */}
-      {selectedShapeIds.length >= 2 && (
+      {!readOnly && selectedShapeIds.length >= 2 && (
         <AlignmentToolbar
           onAlignLeft={handleAlignLeft}
           onAlignCenter={handleAlignCenter}

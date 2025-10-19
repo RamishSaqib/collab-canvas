@@ -28,9 +28,11 @@ interface ToolbarProps {
   lastSaved?: Date | null;
   // Project info
   projectName?: string;
+  // Access
+  readOnly?: boolean;
 }
 
-export default function Toolbar({ user, onSignOut, onBackToProjects, mode, onModeChange, selectedColor, showColorPicker, onToggleColorPicker, onGenerateTestShapes, onClearAllShapes, shapeCount, onAICommand, isAIProcessing, aiError, onSave, isSaving, hasUnsavedChanges, lastSaved, projectName }: ToolbarProps) {
+export default function Toolbar({ user, onSignOut, onBackToProjects, mode, onModeChange, selectedColor, showColorPicker, onToggleColorPicker, onGenerateTestShapes, onClearAllShapes, shapeCount, onAICommand, isAIProcessing, aiError, onSave, isSaving, hasUnsavedChanges, lastSaved, projectName, readOnly }: ToolbarProps) {
   const handleToolClick = (tool: CanvasMode) => {
     onModeChange(tool);
   };
@@ -86,7 +88,8 @@ export default function Toolbar({ user, onSignOut, onBackToProjects, mode, onMod
           <button 
             className={`tool-button ${mode === 'rectangle' ? 'active' : ''}`}
             title="Rectangle Tool (R)" 
-            onClick={() => handleToolClick('rectangle')}
+            onClick={() => !readOnly && handleToolClick('rectangle')}
+            disabled={readOnly}
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="4" y="4" width="12" height="12" />
@@ -95,7 +98,8 @@ export default function Toolbar({ user, onSignOut, onBackToProjects, mode, onMod
           <button 
             className={`tool-button ${mode === 'circle' ? 'active' : ''}`}
             title="Circle Tool (C)" 
-            onClick={() => handleToolClick('circle')}
+            onClick={() => !readOnly && handleToolClick('circle')}
+            disabled={readOnly}
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="10" cy="10" r="6" />
@@ -104,7 +108,8 @@ export default function Toolbar({ user, onSignOut, onBackToProjects, mode, onMod
           <button 
             className={`tool-button ${mode === 'triangle' ? 'active' : ''}`}
             title="Triangle Tool (T)" 
-            onClick={() => handleToolClick('triangle')}
+            onClick={() => !readOnly && handleToolClick('triangle')}
+            disabled={readOnly}
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M10 4 L16 16 L4 16 Z" />
@@ -113,7 +118,8 @@ export default function Toolbar({ user, onSignOut, onBackToProjects, mode, onMod
           <button 
             className={`tool-button ${mode === 'text' ? 'active' : ''}`}
             title="Text Tool (A)" 
-            onClick={() => handleToolClick('text')}
+            onClick={() => !readOnly && handleToolClick('text')}
+            disabled={readOnly}
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
               <path d="M6 4h8v2h-3v10h-2V6H6V4z" />
@@ -122,7 +128,8 @@ export default function Toolbar({ user, onSignOut, onBackToProjects, mode, onMod
           <button 
             className={`tool-button ${mode === 'comment' ? 'active' : ''}`}
             title="Comment Tool" 
-            onClick={() => handleToolClick('comment')}
+            onClick={() => !readOnly && handleToolClick('comment')}
+            disabled={readOnly}
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M4 4h12v10H9l-3 3v-3H4V4z" />
@@ -132,7 +139,8 @@ export default function Toolbar({ user, onSignOut, onBackToProjects, mode, onMod
           <button 
             className={`tool-button color-button ${showColorPicker ? 'active' : ''}`}
             title={`Color Picker (P) - ${selectedColor}`} 
-            onClick={onToggleColorPicker}
+            onClick={() => !readOnly && onToggleColorPicker()}
+            disabled={readOnly}
             style={{ backgroundColor: selectedColor }}
           >
           </button>
@@ -141,7 +149,7 @@ export default function Toolbar({ user, onSignOut, onBackToProjects, mode, onMod
 
       <div className="toolbar-right">
         {/* AI Input */}
-        {onAICommand && (
+        {onAICommand && !readOnly && (
           <>
             <AIInput
               onSubmit={onAICommand}
@@ -153,7 +161,7 @@ export default function Toolbar({ user, onSignOut, onBackToProjects, mode, onMod
         )}
 
         {/* Save Button */}
-        {onSave && (
+        {onSave && !readOnly && (
           <>
             <button
               className={getSaveButtonClass()}

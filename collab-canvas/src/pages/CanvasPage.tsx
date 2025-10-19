@@ -31,7 +31,7 @@ export default function CanvasPage({ user }: CanvasPageProps) {
   const stageRef = useRef<Konva.Stage | null>(null);
   
   const { generateThumbnail } = useThumbnail();
-  const { projects, updateProject, addCollaborator } = useProjects({ userId: user.id, userEmail: user.email });
+  const { projects, updateProject } = useProjects({ userId: user.id, userEmail: user.email });
   
   // Get current project
   const currentProject = projects.find(p => p.id === projectId);
@@ -104,73 +104,45 @@ export default function CanvasPage({ user }: CanvasPageProps) {
     };
   }, [projectId, user.id, user.email]);
 
-  // Auto-add user as collaborator if accessing a public project they're not part of
+  // Determine edit permissions (read-only for public viewers)
+  const [canEdit, setCanEdit] = useState<boolean>(true);
   useEffect(() => {
-    if (!projectId || !user.id || !db) return;
-
-    let hasRun = false;
-
-    const checkAndAddCollaborator = async () => {
-      if (hasRun) return;
-      hasRun = true;
-
+    const checkAccess = async () => {
+      if (!projectId || !db) return;
       try {
-        // Always fetch project directly from Firestore to ensure we have latest data
-        console.log('📥 Checking project access...');
-        if (!db) return;
         const projectRef = doc(db, 'projects', projectId);
-        const projectSnap = await getDoc(projectRef);
-        
-        if (!projectSnap.exists()) {
-          console.error('❌ Project not found:', projectId);
+        const snap = await getDoc(projectRef);
+        if (!snap.exists()) {
+          setCanEdit(false);
           return;
         }
+        const data: any = snap.data();
+        const isOwner = data.createdBy === user.id;
+        const collabRole = (data.collaborators || []).find((c: any) => c.userId === user.id)?.role;
+        const isEditor = collabRole === 'editor' || isOwner;
+        // Public viewers not listed as editor are view-only
+        setCanEdit(Boolean(isEditor));
 
-        const projectData = projectSnap.data();
-        // Check if user is collaborator by either Firebase UID or email
-        const isCollaborator = projectData.collaborators?.some((c: any) => 
-          c.userId === user.id || c.userId === user.email
-        ) || false;
-        const isPublic = projectData.isPublic || false;
-        
-        console.log('🔍 Access check:', { 
-          projectId,
-          isPublic, 
-          isCollaborator, 
-          userId: user.id,
-          userEmail: user.email,
-          collaboratorCount: projectData.collaborators?.length || 0
-        });
-
-        if (isPublic && !isCollaborator) {
-          console.log('🔓 Public project - auto-adding user as viewer...');
-          console.log('   User info:', { id: user.id, email: user.email, name: user.name });
-          // Use Firebase UID for permissions, but include email for display
-          const success = await addCollaborator(projectId, user.id, 'viewer', user.email);
-          if (success) {
-            console.log('✅ Successfully added as collaborator!');
-            console.log('   Reloading to initialize shapes subscription with proper permissions...');
-            // Small delay to ensure Firestore has propagated the update
-            setTimeout(() => {
-              window.location.reload();
-            }, 1000);
-          } else {
-            console.error('❌ Failed to add as collaborator');
+        // If public and viewer not listed in collaborators, add as viewer in UI (owner will still manage elevation)
+        if (data.isPublic && !isOwner && !collabRole) {
+          // Add lightweight viewer to collaborators for display purposes
+          // Owner can later promote to editor; writes are allowed by rules for collaborator fields only
+          try {
+            await (await import('firebase/firestore')).updateDoc(projectRef, {
+              collaborators: [...(data.collaborators || []), { userId: user.id, role: 'viewer', addedAt: Date.now(), email: user.email }],
+              collaboratorIds: Array.from(new Set([...(data.collaboratorIds || []), user.id])),
+              lastModifiedAt: Date.now(),
+            });
+          } catch (e) {
+            // ignore if rules block due to race
           }
-        } else if (isCollaborator) {
-          console.log('✅ Already a collaborator - shapes should load');
-        } else if (!isPublic) {
-          console.log('🔒 Project is private and user is not a collaborator');
         }
-      } catch (error) {
-        console.error('❌ Error checking/adding collaborator:', error);
+      } catch {
+        setCanEdit(false);
       }
     };
-
-    // Run after a small delay to ensure Firebase is ready
-    const timeout = setTimeout(checkAndAddCollaborator, 500);
-    return () => clearTimeout(timeout);
-  }, [projectId, user.id, addCollaborator]);
+    checkAccess();
+  }, [projectId, user.id]);
 
   const handleSignOut = async () => {
     try {
@@ -324,6 +296,7 @@ export default function CanvasPage({ user }: CanvasPageProps) {
         hasUnsavedChanges={hasUnsavedChanges}
         lastSaved={lastSaved}
         projectName={currentProject?.name || 'Untitled Project'}
+        readOnly={!canEdit}
       />
       <ConnectionStatusBanner />
       <div className="main-content">
@@ -331,6 +304,7 @@ export default function CanvasPage({ user }: CanvasPageProps) {
           <Canvas 
             user={user}
             projectId={projectId}
+            readOnly={!canEdit}
             mode={mode}
             onModeChange={setMode}
             selectedColor={selectedColor}
