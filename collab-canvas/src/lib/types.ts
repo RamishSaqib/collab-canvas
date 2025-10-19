@@ -4,6 +4,7 @@ export interface User {
   name: string;
   email: string;
   color: string; // for cursor
+  theme?: 'light' | 'dark'; // UI theme preference
 }
 
 // Cursor Position

@@ -78,6 +78,14 @@ function generateUserColor(): string {
   return colors[Math.floor(Math.random() * colors.length)];
 }
 
+// Detect system theme preference
+function detectSystemTheme(): 'light' | 'dark' {
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  return 'light'; // Default to light if detection not available
+}
+
 // Authentication functions
 
 // Sign up with email and password
@@ -95,6 +103,7 @@ export async function signUpWithEmail(email: string, password: string, displayNa
       email: user.email || email,
       name: displayName,
       color: generateUserColor(),
+      theme: detectSystemTheme(),
     };
   } catch (error: any) {
     console.error('Sign up error:', error);
@@ -115,6 +124,7 @@ export async function signInWithEmail(email: string, password: string) {
       email: user.email || email,
       name: user.displayName || email.split('@')[0],
       color: generateUserColor(),
+      theme: detectSystemTheme(),
     };
   } catch (error: any) {
     console.error('Sign in error:', error);
@@ -136,6 +146,7 @@ export async function signInWithGoogle() {
       email: user.email || '',
       name: user.displayName || user.email?.split('@')[0] || 'User',
       color: generateUserColor(),
+      theme: detectSystemTheme(),
     };
   } catch (error: any) {
     console.error('Google sign in error:', error);

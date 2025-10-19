@@ -180,12 +180,24 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
   const createShape = useCallback((x: number, y: number, createdBy: string, type: 'rectangle' | 'circle' | 'triangle' | 'text' = 'rectangle', color?: string): CanvasObject => {
     console.log('🆕 createShape called - type:', type, 'at:', x, y);
     
+    // Use theme-aware color for text shapes if no color provided
+    let fillColor = color;
+    if (!fillColor) {
+      if (type === 'text') {
+        // Text: white for dark mode, black for light mode
+        fillColor = user.theme === 'dark' ? '#FFFFFF' : '#000000';
+      } else {
+        // Other shapes: use random color
+        fillColor = generateRandomColor();
+      }
+    }
+    
     const baseShape = {
       id: crypto.randomUUID(),
       type,
       x,
       y,
-      fill: color || generateRandomColor(),
+      fill: fillColor,
       rotation: 0,
       zIndex: 0,
       createdBy,
@@ -247,7 +259,7 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
     console.log('📝 Shape created locally (requires manual save)');
 
     return newShape;
-  }, []);
+  }, [user.theme]);
 
   // Batch create multiple shapes (optimized for performance testing)
   const batchCreateShapes = useCallback(async (shapesData: Omit<CanvasObject, 'id' | 'lastModifiedAt'>[]) => {
@@ -590,13 +602,25 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
     type: 'rectangle' | 'circle' | 'triangle' | 'text' = 'rectangle',
     color?: string
   ): CanvasObject => {
+    // Use theme-aware color for text shapes if no color provided
+    let fillColor = color;
+    if (!fillColor) {
+      if (type === 'text') {
+        // Text: white for dark mode, black for light mode
+        fillColor = user.theme === 'dark' ? '#FFFFFF' : '#000000';
+      } else {
+        // Other shapes: use random color
+        fillColor = generateRandomColor();
+      }
+    }
+    
     // Generate the shape without saving it yet
     const baseShape = {
       id: crypto.randomUUID(),
       type,
       x,
       y,
-      fill: color || generateRandomColor(),
+      fill: fillColor,
       rotation: 0,
       zIndex: 0,
       createdBy,
@@ -633,7 +657,7 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
     history.executeCommand(command);
 
     return newShape;
-  }, [addShapeToState, removeShapeFromState, history]);
+  }, [addShapeToState, removeShapeFromState, history, user.theme]);
 
   /**
    * Batch create multiple shapes with undo/redo support
@@ -652,12 +676,24 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
     for (const spec of specs) {
       const { x, y, createdBy, type = 'rectangle', color } = spec;
 
+      // Use theme-aware color for text shapes if no color provided
+      let fillColor = color;
+      if (!fillColor) {
+        if (type === 'text') {
+          // Text: white for dark mode, black for light mode
+          fillColor = user.theme === 'dark' ? '#FFFFFF' : '#000000';
+        } else {
+          // Other shapes: use random color
+          fillColor = generateRandomColor();
+        }
+      }
+
       const baseShape: Partial<CanvasObject> = {
         id: crypto.randomUUID(),
         type,
         x,
         y,
-        fill: color || generateRandomColor(),
+        fill: fillColor,
         rotation: 0,
         zIndex: 0,
         createdBy,
@@ -710,7 +746,7 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
     }
 
     return createdShapes;
-  }, [addShapeToState, removeShapeFromState, history]);
+  }, [addShapeToState, removeShapeFromState, history, user.theme]);
 
   /**
    * Delete shapes with undo/redo support

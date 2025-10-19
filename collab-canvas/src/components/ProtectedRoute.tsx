@@ -29,11 +29,17 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
         ];
         const colorIndex = firebaseUser.uid.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % colors.length;
         
+        // Detect system theme preference
+        const theme = (typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches) 
+          ? 'dark' 
+          : 'light';
+        
         setUser({
           id: firebaseUser.uid,
           name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Anonymous',
           email: firebaseUser.email || '',
           color: colors[colorIndex],
+          theme,
         });
       } else {
         setUser(null);
