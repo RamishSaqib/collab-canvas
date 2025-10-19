@@ -427,6 +427,15 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
         console.log('💾 Auto-saving shape:', shape.id, shape.type);
         await batchSaveObjects([shape]);
         console.log('✅ Shape saved to Firestore');
+        // Trigger thumbnail generation after successful auto-save (if available)
+        if ((window as any).__generateAndSaveThumbnail) {
+          try {
+            await (window as any).__generateAndSaveThumbnail();
+            console.log('🖼️ Thumbnail updated after create');
+          } catch (err) {
+            console.warn('⚠️ Thumbnail generation failed (create):', err);
+          }
+        }
       } catch (error) {
         console.error('❌ Failed to save shape:', error);
       }
@@ -448,6 +457,14 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
         console.log('💾 Auto-saving batch:', shapes.length, 'shapes');
         await batchSaveObjects(shapes);
         console.log('✅ Batch saved to Firestore');
+        if ((window as any).__generateAndSaveThumbnail) {
+          try {
+            await (window as any).__generateAndSaveThumbnail();
+            console.log('🖼️ Thumbnail updated after batch create');
+          } catch (err) {
+            console.warn('⚠️ Thumbnail generation failed (batch create):', err);
+          }
+        }
       } catch (error) {
         console.error('❌ Failed to batch save:', error);
       }
@@ -471,6 +488,14 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
         console.log('🗑️ Auto-deleting shape:', id);
         await deleteObject(id);
         console.log('✅ Shape deleted from Firestore');
+        if ((window as any).__generateAndSaveThumbnail) {
+          try {
+            await (window as any).__generateAndSaveThumbnail();
+            console.log('🖼️ Thumbnail updated after delete');
+          } catch (err) {
+            console.warn('⚠️ Thumbnail generation failed (delete):', err);
+          }
+        }
       } catch (error) {
         console.error('❌ Failed to delete shape:', error);
       }
@@ -496,6 +521,14 @@ export function useCanvas({ user, projectId }: UseCanvasProps): UseCanvasReturn 
         console.log('🗑️ Auto-deleting batch:', ids.length, 'shapes');
         await batchDeleteObjects(ids);
         console.log('✅ Batch deleted from Firestore');
+        if ((window as any).__generateAndSaveThumbnail) {
+          try {
+            await (window as any).__generateAndSaveThumbnail();
+            console.log('🖼️ Thumbnail updated after batch delete');
+          } catch (err) {
+            console.warn('⚠️ Thumbnail generation failed (batch delete):', err);
+          }
+        }
       } catch (error) {
         console.error('❌ Failed to batch delete:', error);
       }

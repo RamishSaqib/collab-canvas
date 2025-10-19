@@ -190,6 +190,29 @@ export default function CanvasPage({ user }: CanvasPageProps) {
     setShowColorPicker(!showColorPicker);
   };
 
+  // Expose a reusable thumbnail generation + project update function (used by manual and auto-saves)
+  const generateAndSaveThumbnail = useCallback(async () => {
+    if (!projectId || !stageRef.current) return;
+
+    // Ensure stage has flushed drawings before thumbnail capture
+    stageRef.current.batchDraw();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    // Generate thumbnail
+    const thumbnailUrl = await generateThumbnail(stageRef.current);
+
+    // Update project with thumbnail and lastAccessedAt
+    const updates: any = { lastAccessedAt: Date.now() };
+    updates.thumbnailUrl = thumbnailUrl !== null ? thumbnailUrl : null;
+    await updateProject(projectId, updates);
+  }, [projectId, generateThumbnail, updateProject]);
+
+  // Make generator available globally for auto-save flows
+  useEffect(() => {
+    (window as any).__generateAndSaveThumbnail = generateAndSaveThumbnail;
+    return () => { delete (window as any).__generateAndSaveThumbnail; };
+  }, [generateAndSaveThumbnail]);
+
   // Handle save project
   const handleSave = useCallback(async () => {
     if (!projectId || !stageRef.current || isSaving) return;
@@ -202,23 +225,8 @@ export default function CanvasPage({ user }: CanvasPageProps) {
         console.log('✅ Shapes persisted to Firestore');
       }
 
-      // Then generate thumbnail
-      const thumbnailUrl = await generateThumbnail(stageRef.current);
-      
-      // Update project with thumbnail and lastAccessedAt
-      const updates: any = {
-        lastAccessedAt: Date.now(),
-      };
-      
-      // Set thumbnailUrl to null to explicitly clear it when there are no shapes
-      // (updateProject will convert null to deleteField())
-      if (thumbnailUrl !== null) {
-        updates.thumbnailUrl = thumbnailUrl;
-      } else {
-        updates.thumbnailUrl = null;
-      }
-      
-      await updateProject(projectId, updates);
+      // Then generate thumbnail and update project
+      await generateAndSaveThumbnail();
 
       setHasUnsavedChanges(false);
       setLastSaved(new Date());
@@ -228,7 +236,7 @@ export default function CanvasPage({ user }: CanvasPageProps) {
     } finally {
       setIsSaving(false);
     }
-  }, [projectId, generateThumbnail, updateProject, isSaving]);
+  }, [projectId, generateAndSaveThumbnail, isSaving]);
 
   // Track when shapes change
   const handleShapesChange = useCallback(() => {

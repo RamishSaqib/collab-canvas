@@ -166,7 +166,7 @@ export default function Toolbar({ user, onSignOut, onBackToProjects, mode, onMod
             <button
               className={getSaveButtonClass()}
               onClick={onSave}
-              disabled={isSaving || !hasUnsavedChanges}
+              disabled={!!isSaving}
               title={lastSaved ? `Last saved: ${lastSaved.toLocaleTimeString()}` : 'Save project'}
             >
               {isSaving && (
